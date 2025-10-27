@@ -14,12 +14,28 @@
     ],
     "rewrites": [
         {
-            "source": "/api/(.*)",
-            "destination": "/api/$1"
+            "source": "/api/alumnos/(.*)",
+            "destination": "/api/alumnos?action=$1"
         },
         {
-            "source": "/(.*)",
-            "destination": "/public/$1"
+            "source": "/api/finanzas/(.*)",
+            "destination": "/api/finanzas?action=$1"
+        },
+        {
+            "source": "/api/padres/(.*)",
+            "destination": "/api/padres?action=$1"
+        },
+        {
+            "source": "/api/pagos/(.*)",
+            "destination": "/api/pagos?action=$1"
+        },
+        {
+            "source": "/api/login",
+            "destination": "/api/auth?action=login"
+        },
+        {
+            "source": "/api/logout",
+            "destination": "/api/auth?action=logout"
         }
     ]
 }
