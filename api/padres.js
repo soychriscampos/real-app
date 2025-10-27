@@ -1,17 +1,22 @@
-// api/padres.js
+// /api/padres.js
 import supaAdmin from '../lib/supaAdmin.js';
 import bcrypt from 'bcryptjs';
-import { getSession, setSession, setSessionDevSafe } from '../lib/session.js';
-import { clearSession } from '../lib/session.js';
+import { getSession, setSession, setSessionDevSafe, clearSession } from '../lib/session.js';
 
 const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
 const setSess = isProd ? setSession : setSessionDevSafe;
 
+// Lee la acción desde ?action=... (vercel.json reescribe /api/padres/login -> ?action=login)
 function getAction(req) {
-    const url = new URL(req.url, 'http://localhost');
-    return (url.searchParams.get('action') || '').toLowerCase();
+    try {
+        const url = new URL(req.url, 'http://localhost');
+        return (url.searchParams.get('action') || '').toLowerCase().trim();
+    } catch {
+        return '';
+    }
 }
 
+// Body parser tolerante (JSON o x-www-form-urlencoded)
 async function readJson(req) {
     if (req.body && typeof req.body === 'object') return req.body;
     const chunks = [];
@@ -24,7 +29,7 @@ async function readJson(req) {
     }
 }
 
-/* GET /api/padres/hijos */
+/* GET /api/padres/hijos (tras rewrite) */
 async function h_hijos(req, res) {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -73,7 +78,7 @@ async function h_hijos(req, res) {
     }
 }
 
-/* POST /api/padres/login */
+/* POST /api/padres/login (tras rewrite) */
 async function h_login(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -109,35 +114,27 @@ async function h_login(req, res) {
     }
 }
 
-/* logout */
-export default async function handler(req, res) {
-    const action = String(req.query.action || '').trim().toLowerCase();
-
+/* ANY /api/padres?action=logout */
+async function h_logout(_req, res) {
     try {
-        // ...otros cases (login, hijos, perfil, etc.)
-
-        if (action === 'logout') {
-            // acepta GET y POST para que funcione desde cualquier botón/enlace
-            clearSession(res);
-            return res.status(200).json({ ok: true });
-        }
-
-        // si no match
-        return res.status(404).json({ error: 'Not found' });
+        clearSession(res);
+        return res.status(200).json({ ok: true });
     } catch (e) {
-        console.error('[padres] error:', e);
-        return res.status(500).json({ error: 'Error interno' });
+        console.error('[padres/logout] error:', e);
+        return res.status(500).json({ error: 'No se pudo cerrar sesión' });
     }
 }
 
-/* Router */
+/* Router ÚNICO */
 export default async function handler(req, res) {
     try {
         const action = getAction(req);
         switch (action) {
             case 'hijos': return h_hijos(req, res);
             case 'login': return h_login(req, res);
-            default: return res.status(404).json({ error: 'Acción no soportada' });
+            case 'logout': return h_logout(req, res);
+            default:
+                return res.status(404).json({ error: 'Acción no soportada' });
         }
     } catch (e) {
         console.error('[padres/*] Error:', e);
