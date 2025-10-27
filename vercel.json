@@ -36,6 +36,22 @@
         {
             "source": "/api/logout",
             "destination": "/api/auth?action=logout"
+        },
+        {
+            "source": "/",
+            "destination": "/public/index.html"
+        },
+        {
+            "source": "/((?:[\\w-]+/)*[\\w-]+)$",
+            "destination": "/public/$1.html"
+        },
+        {
+            "source": "/(.*)\\.(css|js|png|jpg|svg|woff2)",
+            "destination": "/public/$1.$2"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/public/$1"
         }
     ]
 }
