@@ -12,6 +12,17 @@
             ],
             "destination": "https://colegioreal.app",
             "permanent": true
+        },
+        {
+            "source": "/",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "colegioreal.app"
+                }
+            ],
+            "destination": "/padres",
+            "permanent": true
         }
     ],
     "rewrites": [
@@ -38,26 +49,6 @@
         {
             "source": "/api/logout",
             "destination": "/api/auth?action=logout"
-        },
-        {
-            "source": "/",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "colegioreal.app"
-                }
-            ],
-            "destination": "/padres"
-        },
-        {
-            "source": "/(.*)",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "colegioreal.app"
-                }
-            ],
-            "destination": "/padres/$1"
         }
     ],
     "headers": [
