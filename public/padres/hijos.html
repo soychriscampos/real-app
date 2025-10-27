@@ -29,7 +29,7 @@
 
             <!-- Acciones (por si en el futuro agregamos salir o volver) -->
             <div class="actions right" style="margin-top:12px">
-                <a href="/padres/login.html" class="btn">Cerrar sesión</a>
+                <a id="btnLogout" class="btn">Cerrar sesión</a>
             </div>
         </div>
     </div>
@@ -128,6 +128,18 @@
             });
         });
     })();
+
+
+    document.getElementById('btnLogout')?.addEventListener('click', async () => {
+        try {
+            await fetch('/api/padres?action=logout', {
+                method: 'POST',
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+        } catch { }
+        location.replace('/padres/');
+    });
 </script>
 
 

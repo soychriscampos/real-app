@@ -2,6 +2,7 @@
 import supaAdmin from '../lib/supaAdmin.js';
 import bcrypt from 'bcryptjs';
 import { getSession, setSession, setSessionDevSafe } from '../lib/session.js';
+import { clearSession } from '../lib/session.js';
 
 const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
 const setSess = isProd ? setSession : setSessionDevSafe;
@@ -104,6 +105,27 @@ async function h_login(req, res) {
         return res.status(200).json({ ok: true });
     } catch (e) {
         console.error('[padres/login] Uncaught:', e);
+        return res.status(500).json({ error: 'Error interno' });
+    }
+}
+
+/* logout */
+export default async function handler(req, res) {
+    const action = String(req.query.action || '').trim().toLowerCase();
+
+    try {
+        // ...otros cases (login, hijos, perfil, etc.)
+
+        if (action === 'logout') {
+            // acepta GET y POST para que funcione desde cualquier botón/enlace
+            clearSession(res);
+            return res.status(200).json({ ok: true });
+        }
+
+        // si no match
+        return res.status(404).json({ error: 'Not found' });
+    } catch (e) {
+        console.error('[padres] error:', e);
         return res.status(500).json({ error: 'Error interno' });
     }
 }
