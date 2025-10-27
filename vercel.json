@@ -7,28 +7,6 @@
             "has": [
                 {
                     "type": "host",
-                    "value": "staff.colegioreal.app"
-                }
-            ],
-            "destination": "/staff",
-            "permanent": true
-        },
-        {
-            "source": "/(.*)",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "staff.colegioreal.app"
-                }
-            ],
-            "destination": "/staff/$1",
-            "permanent": true
-        },
-        {
-            "source": "/",
-            "has": [
-                {
-                    "type": "host",
                     "value": "www.colegioreal.app"
                 }
             ],
@@ -63,19 +41,23 @@
         },
         {
             "source": "/",
-            "destination": "/public/index.html"
-        },
-        {
-            "source": "/((?:[\\w-]+/)*[\\w-]+)$",
-            "destination": "/public/$1.html"
-        },
-        {
-            "source": "/(.*)\\.(css|js|png|jpg|svg|woff2)",
-            "destination": "/public/$1.$2"
+            "has": [
+                {
+                    "type": "host",
+                    "value": "colegioreal.app"
+                }
+            ],
+            "destination": "/padres"
         },
         {
             "source": "/(.*)",
-            "destination": "/public/$1"
+            "has": [
+                {
+                    "type": "host",
+                    "value": "colegioreal.app"
+                }
+            ],
+            "destination": "/padres/$1"
         }
     ],
     "headers": [
