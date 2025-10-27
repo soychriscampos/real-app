@@ -14,10 +14,6 @@
     ],
     "rewrites": [
         {
-            "source": "/padres",
-            "destination": "/public/padres/login.html"
-        },
-        {
             "source": "/api/alumnos/(.*)",
             "destination": "/api/alumnos?action=$1"
         },
