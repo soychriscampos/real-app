@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>REAL · Acceso</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div class="container" style="max-width:420px; margin-top:10vh">
+        <div class="card">
+            <h1>Iniciar sesión</h1>
+            <form id="f" class="row">
+                <input class="input" name="username" placeholder="Usuario" required />
+                <input class="input" name="password" type="password" placeholder="Contraseña" required />
+
+                <div class="actions right">
+                    <button class="btn primary">Entrar</button>
+                </div>
+
+                <div id="msg" class="subtle"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const f = document.getElementById('f'),
+            msg = document.getElementById('msg'),
+            btn = f.querySelector('button');
+
+        f.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            msg.textContent = '';
+
+            // deshabilitar botón temporalmente
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = 'Iniciando sesión…';
+
+            const fd = new FormData(f);
+            try {
+                const r = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: fd.get('username'),
+                        password: fd.get('password')
+                    })
+                });
+
+                const j = await r.json().catch(() => ({}));
+                if (r.ok) {
+                    location.href = '/inicio.html';
+                } else {
+                    msg.textContent = j.error || 'No se pudo iniciar sesión';
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            } catch (e) {
+                msg.textContent = 'Error de conexión';
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        });
+    </script>
+
+</body>
+
+</html>

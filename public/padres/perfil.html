@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>REAL · Perfil del alumno</title>
+    <meta name="robots" content="noindex,nofollow" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/padres/guard-parents.js" defer></script>
+</head>
+
+<body data-page="perfil">
+
+    <!-- Topbar con logo centrado -->
+    <header
+        style="background:#fff;border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:20px;text-align:center;">
+        <img src="/img/logo-real.png" alt="REAL de Escuinapa" style="height:60px;">
+    </header>
+
+    <div class="container" style="max-width:960px; margin-top:2vh">
+
+        <!-- Encabezado -->
+        <div class="card">
+            <h2 id="alumnoNombre" style="margin:0 0 6px">Alumno</h2>
+            <div class="muted" id="alumnoMeta">Nivel · Grado</div>
+            <div class="subtle" id="cicloInfo" style="margin-top:4px">Ciclo: —</div>
+        </div>
+
+        <!-- Contactos -->
+        <div class="card" style="margin-top:14px">
+            <h3 style="margin:0 0 10px">Información de contacto</h3>
+            <table class="table" id="tblContactos">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Parentesco</th>
+                        <th>WhatsApp</th>
+                        <th>Email</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyContactos">
+                    <tr>
+                        <td class="muted" colspan="4">Cargando…</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Estatus -->
+        <div class="card" style="margin-top:14px">
+            <h3 style="margin:0 0 10px">Estatus</h3>
+            <div id="estado" class="helper">Cargando…</div>
+        </div>
+
+        <!-- Desglose -->
+        <div class="card" style="margin-top:14px">
+            <h3 style="margin:0 0 10px">Desglose por periodo</h3>
+            <table class="table" id="tblDesglose">
+                <thead>
+                    <tr>
+                        <th>Periodo</th>
+                        <th>Importe</th>
+                        <th>Pagado</th>
+                        <th>Saldo</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyDesglose">
+                    <tr>
+                        <td class="muted" colspan="4">Cargando…</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Historial -->
+        <div class="card" style="margin-top:14px">
+            <h3 style="margin:0 0 10px">Historial de pagos</h3>
+            <table class="table" id="tblHist">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Monto</th>
+                        <th>Tipo</th>
+                        <th>Método</th>
+                        <th>Recibió</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyHist">
+                    <tr>
+                        <td class="muted" colspan="5">Cargando…</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Calificaciones -->
+        <div class="card" style="margin-top:14px">
+            <h3 style="margin:0 0 10px">Calificaciones</h3>
+            <div id="califMsg" class="muted">Aún no hay calificaciones disponibles.</div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="actions right" style="margin-top:12px">
+            <a id="btnVolver" class="btn" href="/padres/hijos.html" style="display:none">Volver</a>
+            <a id="btnLogout" class="btn" href="/padres/login.html" style="display:none">Cerrar sesión</a>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const $ = (id) => document.getElementById(id);
+            const qs = (k) => new URLSearchParams(location.search).get(k);
+            const fmt = (n) =>
+            (window.fmtMXN
+                ? fmtMXN(n)
+                : (Number(n || 0)).toLocaleString("es-MX", { style: "currency", currency: "MXN" }));
+
+            // === NUEVO: rol global para decisiones de UI ===
+            let ROLE = ""; // 'PARENT' | 'ADMIN' | 'SUBADMIN' | 'CAJA'
+
+            async function getJson(url) {
+                const r = await fetch(url, { credentials: "same-origin" });
+                const t = await r.text();
+                let j = {};
+                try { j = JSON.parse(t); } catch { j = {}; }
+                if (!r.ok) throw new Error(j.error || "HTTP " + r.status);
+                return j;
+            }
+
+            // === NUEVO: cargar rol una sola vez ===
+            async function cargarRol() {
+                try {
+                    const me = await getJson("/api/me");
+                    ROLE = (me?.user?.type || "").toUpperCase();
+                } catch {
+                    ROLE = "";
+                }
+            }
+
+            function safeText(x) { return (x == null ? "" : String(x)); }
+
+            async function cargarCiclo() {
+                try {
+                    const p = await getJson("/api/param?keys=ciclo_actual");
+                    const ciclo = p?.ciclo_actual || "";
+                    $("cicloInfo").textContent = ciclo ? "Ciclo: " + ciclo : "Ciclo: —";
+                    return ciclo;
+                } catch {
+                    $("cicloInfo").textContent = "Ciclo: —";
+                    return "";
+                }
+            }
+
+            async function cargarAlumno(alumnoId) {
+                try {
+                    const j = await getJson("/api/alumnos/get_full?id=" + encodeURIComponent(alumnoId));
+                    const a = j.alumno || {};
+                    $("alumnoNombre").textContent = a.nombre_completo || "Alumno";
+                    $("alumnoMeta").textContent = [a.nivel || "", (a.grado ?? "")]
+                        .filter(Boolean)
+                        .join(" · ");
+                } catch (e) {
+                    console.error(e);
+                    $("alumnoNombre").textContent = "Alumno";
+                    $("alumnoMeta").textContent = "";
+                }
+            }
+
+            async function cargarContactos(alumnoId) {
+                const tbody = document.getElementById("tbodyContactos");
+                try {
+                    const r = await fetch("/api/alumnos/contactos?id=" + encodeURIComponent(alumnoId), {
+                        credentials: "same-origin",
+                    });
+                    const lista = await r.json().catch(() => []);
+                    if (!r.ok) throw new Error(lista.error || "HTTP " + r.status);
+
+                    const rows = (Array.isArray(lista) ? lista : [])
+                        .map((c) => {
+                            let tel = c.whatsapp ?? "";
+                            tel = tel.replace(/\D/g, "");
+                            if (tel.length > 10) tel = tel.slice(-10);
+                            const email = c.email
+                                ? c.email
+                                : `<span style="color:var(--muted)"><i>No se ha registrado email.</i></span>`;
+                            return `
+              <tr>
+                <td>${c.nombre ?? ""}</td>
+                <td>${c.parentesco ?? c.relacion ?? ""}</td>
+                <td>${tel}</td>
+                <td>${email}</td>
+              </tr>`;
+                        })
+                        .join("");
+
+                    tbody.innerHTML = rows || '<tr><td class="muted" colspan="4">Sin contactos.</td></tr>';
+                } catch (e) {
+                    console.error("contactos:", e);
+                    tbody.innerHTML = '<tr><td class="muted" colspan="4">Sin contactos.</td></tr>';
+                }
+            }
+
+            // === NUEVO: helper de fecha DD-MM-YY (view) ===
+            function fmtFechaDMY2(iso) {
+                // espera 'YYYY-MM-DD' (o fecha ISO), devuelve 'DD-MM-YY'
+                if (!iso) return "";
+                const s = String(iso).slice(0, 10); // YYYY-MM-DD
+                const [y, m, d] = s.split("-");
+                if (!y || !m || !d) return s;
+                return `${d}-${m}-${y.slice(-2)}`;
+            }
+
+            async function cargarSummaryYDesglose(alumnoId, ciclo) {
+                const est = $("estado");
+                const tb = $("tblDesglose").querySelector("tbody");
+                try {
+                    const s = await getJson("/api/pagos/summary?alumno_id=" + encodeURIComponent(alumnoId) + "&ciclo=" + encodeURIComponent(ciclo));
+                    const estPend = (String(s.estatus || "").toLowerCase() === "pendiente");
+                    est.innerHTML = `
+          <span class="${estPend ? "badge-danger" : "badge-success"}" 
+          style="display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid;margin-right:6px">
+          ${s.estatus || "—"}</span>
+          <span>Adeudo: <b>${fmt(s.adeudo || 0)}</b></span>`;
+
+                    const det = Array.isArray(s.detalle) ? s.detalle : [];
+                    tb.innerHTML = det.length
+                        ? det.map(d => `
+            <tr>
+              <td>${safeText(d.periodo)}</td>
+              <td>${fmt(d.importe)}</td>
+              <td>${fmt(d.pagado)}</td>
+              <td>${fmt(d.saldo)}</td>
+            </tr>`).join("")
+                        : '<tr><td class="muted" colspan="4">Sin periodos.</td></tr>';
+
+                    // === CAMBIO: solo PARENT ve bloqueo por adeudo; staff siempre ve "disponibles"
+                    if (ROLE === "PARENT") {
+                        $("califMsg").textContent =
+                            Number(s.adeudo || 0) > 0
+                                ? "No es posible mostrar calificaciones por Adeudo."
+                                : "Aún no hay calificaciones disponibles.";
+                    } else {
+                        $("califMsg").textContent = "Aún no hay calificaciones disponibles.";
+                    }
+                } catch (e) {
+                    console.error(e);
+                    est.textContent = "No fue posible calcular el estatus.";
+                    tb.innerHTML = '<tr><td class="muted" colspan="4">Sin datos.</td></tr>';
+                }
+            }
+
+            async function cargarHistorial(alumnoId, ciclo) {
+                const tb = $("tblHist").querySelector("tbody");
+                try {
+                    const rows = await getJson("/api/pagos/historial?alumno_id=" + encodeURIComponent(alumnoId) + "&ciclo=" + encodeURIComponent(ciclo));
+                    const arr = Array.isArray(rows) ? rows : [];
+                    tb.innerHTML = arr.length
+                        ? arr.map(p => `
+            <tr>
+              <td>${fmtFechaDMY2(p.fecha_pago)}</td>
+              <td>${fmt(p.monto_total)}</td>
+              <td>${safeText(p.tipo_de_pago || "")}</td>
+              <td>${safeText(p.metodo_de_pago || "")}</td>
+              <td>${safeText(p.recibio || "")}</td>
+            </tr>`).join("")
+                        : '<tr><td class="muted" colspan="5">Sin pagos en el ciclo.</td></tr>';
+                } catch (e) {
+                    console.error(e);
+                    tb.innerHTML = '<tr><td class="muted" colspan="5">No fue posible cargar el historial.</td></tr>';
+                }
+            }
+
+            async function toggleVolverForParent() {
+                const btn = document.getElementById("btnVolver");
+                const logout = document.getElementById("btnLogout");
+                if (!btn || !logout) return;
+
+                try {
+                    // ROLE ya está cargado
+                    logout.style.display = (ROLE === "PARENT") ? "" : "none";
+
+                    if (ROLE === "PARENT") {
+                        const rh = await fetch("/api/padres/hijos", { credentials: "same-origin" });
+                        if (!rh.ok) return (btn.style.display = "none");
+                        const hijos = await rh.json().catch(() => []);
+                        btn.style.display = (Array.isArray(hijos) && hijos.length > 1) ? "" : "none";
+                    } else {
+                        btn.style.display = "none";
+                    }
+                } catch {
+                    btn.style.display = "none";
+                    logout.style.display = "none";
+                }
+            }
+
+            (async function init() {
+                const alumnoId = qs("id");
+                if (!alumnoId) {
+                    alert("Falta ?id= en la URL");
+                    location.href = "/padres/hijos.html";
+                    return;
+                }
+                // Cargar rol ANTES de pintar UI que depende del rol
+                await cargarRol();
+
+                const ciclo = await cargarCiclo();
+                await Promise.all([
+                    cargarAlumno(alumnoId),
+                    cargarContactos(alumnoId),
+                    cargarSummaryYDesglose(alumnoId, ciclo),
+                    cargarHistorial(alumnoId, ciclo),
+                ]);
+                await toggleVolverForParent();
+            })();
+        })();
+    </script>
+</body>
+
+</html>

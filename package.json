@@ -1,0 +1,17 @@
+{
+    "name": "real-app",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "echo \"noop\""
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.46.1",
+        "bcryptjs": "^3.0.2",
+        "dotenv": "^16.4.5",
+        "jsonwebtoken": "^9.0.2"
+    },
+    "devDependencies": {
+        "vercel": "^48.1.6"
+    }
+}

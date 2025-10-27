@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Alta de alumno</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="/guard.js" defer></script>
+</head>
+
+<body data-page="altas" autocomplete="off">
+    <div data-include="/partials/topbar2.html"></div>
+
+    <div class="container">
+        <h2>Alta de alumno</h2>
+
+        <!-- DATOS DEL ALUMNO (idéntico layout a editar) -->
+        <div class="section">
+            <h3>Datos del alumno</h3>
+            <form id="frmAlumno" autocomplete="off">
+                <div class="row-2">
+                    <div>
+                        <label>Nombre completo</label>
+                        <input id="nombre_completo" name="nombre_completo" required autocomplete="off" />
+                    </div>
+                    <div>
+                        <label>Sexo</label>
+                        <select id="sexo" name="sexo" required autocomplete="off">
+                            <option value="">Selecciona</option>
+                            <option value="H">Hombre</option>
+                            <option value="M">Mujer</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row-3">
+                    <div>
+                        <label>Nivel</label>
+                        <select id="nivel" name="nivel" required autocomplete="off">
+                            <option value="">Selecciona</option>
+                            <option value="Preescolar">Preescolar</option>
+                            <option value="Primaria">Primaria</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Grado</label>
+                        <select id="grado" name="grado" required autocomplete="off">
+                            <option value="">Selecciona</option>
+                            <option value="1">1°</option>
+                            <option value="2">2°</option>
+                            <option value="3">3°</option>
+                            <option value="4">4°</option>
+                            <option value="5">5°</option>
+                            <option value="6">6°</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Estatus</label>
+                        <select id="estatus" name="estatus" required autocomplete="off">
+                            <option value="ACTIVO" selected>Activo</option>
+                            <option value="BAJA">Baja</option>
+                            <option value="EGRESADO">Egresado</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row-2">
+                    <div>
+                        <label>Oficial SEP</label>
+                        <select id="oficial_sep" name="oficial_sep" required autocomplete="off">
+                            <option value="false">No</option>
+                            <option value="true" selected>Sí</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Fecha de nacimiento</label>
+                        <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" autocomplete="off" />
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- COLEGIATURA INICIAL -->
+        <div class="section">
+            <h3>Colegiatura inicial</h3>
+            <div class="subtle" style="margin-bottom:8px">Opcional. Si no capturas nada, después se usará el importe
+                base por nivel.</div>
+            <div class="row-3">
+                <div>
+                    <label>Importe base</label>
+                    <input id="col_importe" inputmode="decimal" placeholder="0.00" autocomplete="off" />
+                </div>
+                <div>
+                    <label>Vigencia desde</label>
+                    <input id="col_vigencia" type="date" autocomplete="off" />
+                </div>
+                <div>
+                    <label>Notas</label>
+                    <input id="col_notas" placeholder="Opcional" autocomplete="off" />
+                </div>
+            </div>
+        </div>
+
+        <!-- PADRES / TUTORES -->
+        <div class="section">
+            <h3>Padres / Tutores</h3>
+            <div class="subtle">El máximo de contactos permitidos por alumno es 5.</div>
+
+            <div class="contact-head" style="margin-top:8px">
+                <div>Nombre</div>
+                <div>Parentesco</div>
+                <div>WhatsApp</div>
+                <div>Email</div>
+            </div>
+            <div id="contactosWrap"></div>
+
+            <div class="actions" style="justify-content:flex-start">
+                <button class="btn" id="btnAddContacto">+ Agregar tutor</button>
+            </div>
+        </div>
+
+        <!-- ACCIONES (fuera, a la derecha) -->
+        <div class="actions right">
+            <button class="btn" id="btnCancelar">Cancelar</button>
+            <button class="btn primary" id="btnGuardar">Guardar alumno</button>
+        </div>
+        <div id="msg" class="muted"></div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="/topbar-init.js" defer></script>
+    <script src="/include.js" defer></script>
+    <script>
+        const $id = (x) => document.getElementById(x);
+        const nz = (v) => { if (v === undefined || v === null) return null; const s = String(v).trim(); return s.length ? s : null; };
+
+        /* ===== Toast ===== */
+        let __toastTimer = null;
+        function showToast(msg, type = 'success') {
+            const t = $id('toast');
+            if (__toastTimer) { clearTimeout(__toastTimer); __toastTimer = null; }
+            t.className = 'toast ' + (type === 'error' ? 'error' : 'success');
+            t.textContent = msg;
+            void t.offsetWidth;
+            t.classList.add('show');
+            __toastTimer = setTimeout(() => { t.classList.remove('show'); __toastTimer = null; }, 2400);
+        }
+
+        /* ===== Contact rows ===== */
+        function parentescoOptions(sel) {
+            const opts = ['Mamá', 'Papá', 'Abuela', 'Abuelo', 'Tía', 'Tío', 'Prima', 'Primo', 'Hermana', 'Hermano', 'Tutor', 'Otro'];
+            return opts.map(o => `<option ${sel === o ? 'selected' : ''}>${o}</option>`).join('');
+        }
+
+        function contactRowTpl(idx, c = {}) {
+            const waLocal = (c.whatsapp || '').replace(/^\+52/, '');
+            return `
+        <!-- Fila 1: básicos -->
+        <div class="contact-row" data-idx="${idx}">
+          <input class="c_nombre" placeholder="Nombre" value="${c.nombre || ''}"/>
+          <select class="c_parentesco" aria-label="Parentesco">
+            <option value="">— Parentesco —</option>
+            ${parentescoOptions(c.parentesco || '')}
+          </select>
+          <input class="c_wa" placeholder="10 dígitos" value="${waLocal || ''}" />
+          <input class="c_email" placeholder="correo@dominio.com" value="${c.email || ''}"/>
+        </div>
+
+        <!-- Fila 2: consentimientos -->
+        <div class="contact-row" data-idx="${idx}" data-flags>
+          <label><input type="checkbox" class="c_via_wa" ${c.via_whatsapp ? 'checked' : ''}/> Recibe WhatsApp</label>
+          <label><input type="checkbox" class="c_via_email" ${c.via_email ? 'checked' : ''}/> Recibe Email</label>
+          <label><input type="checkbox" class="c_consent" ${c.consentimiento_mensajes ? 'checked' : ''}/> Consentimiento</label>
+          <label><input type="checkbox" class="c_fact" ${c.recibe_factura ? 'checked' : ''}/> ¿Recibe factura?</label>
+        </div>
+
+        <!-- Fila 3: link toggle fiscal -->
+        <div class="contact-row" data-idx="${idx}" data-link>
+          <button class="btn link chev toggleFiscal" type="button" aria-expanded="false">Datos fiscales</button>
+        </div>
+
+        <!-- Fila toggle: datos fiscales -->
+        <div class="contact-row" data-idx="${idx}" data-fiscal="1" style="display:none">
+          <input class="c_rfc" placeholder="RFC" value="${c.rfc || ''}"/>
+          <input class="c_razon" placeholder="Razón social" value="${c.razon_social || ''}"/>
+          <input class="c_cp" placeholder="CP fiscal" value="${c.cp_fiscal || ''}"/>
+          <div class="split-2">
+            <input class="c_regimen" placeholder="Régimen fiscal" value="${c.regimen_fiscal || ''}"/>
+            <input class="c_cfd" placeholder="Uso CFDI" value="${c.uso_cfdi || ''}"/>
+          </div>
+        </div>`;
+        }
+
+        function wireFiscalToggles(scope = document) {
+            scope.querySelectorAll('.toggleFiscal').forEach(btn => {
+                btn.classList.add('chev');
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    const idx = btn.closest('.contact-row')?.getAttribute('data-idx');
+                    const fisc = document.querySelector(`.contact-row[data-idx="${idx}"][data-fiscal="1"]`);
+                    if (!fisc) return;
+                    const open = (fisc.style.display === 'none' || !fisc.style.display);
+                    fisc.style.display = open ? 'grid' : 'none';
+                    btn.setAttribute('aria-expanded', String(open));
+                    if (open) btn.dataset.open = 'true'; else btn.removeAttribute('data-open');
+                };
+            });
+        }
+
+        function ensureRows(min = 2, max = 5) {
+            const wrap = $id('contactosWrap');
+            let normals = Array.from(wrap.querySelectorAll('.contact-row:not([data-fiscal]):not([data-flags]):not([data-link])'));
+            if (!normals.length) {
+                wrap.innerHTML = '';
+                for (let i = 0; i < min; i++) wrap.insertAdjacentHTML('beforeend', contactRowTpl(i));
+                wireFiscalToggles(wrap);
+            } else {
+                normals.forEach((r, i) => {
+                    const old = r.getAttribute('data-idx');
+                    r.setAttribute('data-idx', i);
+                    ['data-flags', 'data-link', 'data-fiscal'].forEach(attr => {
+                        const sec = wrap.querySelector(`.contact-row[data-idx="${old}"][${attr}]`);
+                        if (sec) sec.setAttribute('data-idx', i);
+                    });
+                });
+            }
+            const btnAdd = $id('btnAddContacto');
+            btnAdd.onclick = (e) => {
+                e.preventDefault();
+                const curr = wrap.querySelectorAll('.contact-row:not([data-fiscal]):not([data-flags]):not([data-link])').length;
+                if (curr >= max) return;
+                wrap.insertAdjacentHTML('beforeend', contactRowTpl(curr));
+                wireFiscalToggles(wrap);
+            };
+        }
+
+        /* ===== Build payload (POST /api/alumnos/create) ===== */
+        function buildPayload() {
+            const alumno = {
+                nombre_completo: $id('nombre_completo').value.trim(),
+                sexo: $id('sexo').value,
+                nivel: $id('nivel').value,
+                grado: Number($id('grado').value || 0),
+                estatus: $id('estatus').value || 'ACTIVO',
+                oficial_sep: $id('oficial_sep').value === 'true',
+                fecha_nacimiento: $id('fecha_nacimiento').value || null
+            };
+
+            const normals = Array.from($id('contactosWrap').querySelectorAll('.contact-row:not([data-fiscal]):not([data-flags]):not([data-link])'));
+            const contactos = normals.map(r => {
+                const idx = Number(r.getAttribute('data-idx') || 0);
+                const flags = document.querySelector(`.contact-row[data-idx="${idx}"][data-flags]`);
+                const fisc = document.querySelector(`.contact-row[data-idx="${idx}"][data-fiscal]`);
+                const local10 = (r.querySelector('.c_wa').value || '').replace(/\D/g, '').slice(0, 10);
+                const whatsapp = local10 ? `+52${local10}` : null;
+
+                return {
+                    idx,
+                    nombre: (r.querySelector('.c_nombre').value || '').trim(),
+                    parentesco: (r.querySelector('.c_parentesco').value || '').trim(),
+                    whatsapp,
+                    email: (r.querySelector('.c_email').value || '').trim().toLowerCase(),
+                    via_whatsapp: !!(flags && flags.querySelector('.c_via_wa')?.checked),
+                    via_email: !!(flags && flags.querySelector('.c_via_email')?.checked),
+                    consentimiento_mensajes: !!(flags && flags.querySelector('.c_consent')?.checked),
+                    recibe_factura: !!(flags && flags.querySelector('.c_fact')?.checked),
+                    rfc: (fisc && fisc.querySelector('.c_rfc')?.value || '').trim(),
+                    razon_social: (fisc && fisc.querySelector('.c_razon')?.value || '').trim(),
+                    cp_fiscal: (fisc && fisc.querySelector('.c_cp')?.value || '').trim(),
+                    regimen_fiscal: (fisc && fisc.querySelector('.c_regimen')?.value || '').trim(),
+                    uso_cfdi: (fisc && fisc.querySelector('.c_cfd')?.value || '').trim()
+                };
+            }).filter(x => x.nombre);
+
+            // Colegiatura inicial (opcional)
+            const impRaw = $id('col_importe').value;
+            const impNum = impRaw.trim() === '' ? null : Number(String(impRaw).replace(/,/g, '').trim());
+            const vig = $id('col_vigencia').value || null;
+            const notasRaw = ($id('col_notas').value || '').trim();
+
+            const any = (impRaw.trim() !== '') || !!vig || !!notasRaw;
+            let colegiatura = null;
+            if (any) {
+                colegiatura = {};
+                if (impRaw.trim() !== '' && Number.isFinite(impNum)) colegiatura.importe_base = impNum;
+                if (vig) colegiatura.vigencia_desde = vig;
+                if (notasRaw) colegiatura.notas = notasRaw; else colegiatura.notas = 'Alta inicial';
+                if (!Object.keys(colegiatura).length) colegiatura = null;
+            }
+
+            return { alumno, contactos, colegiatura };
+        }
+
+        async function guardar() {
+            const btn = $id('btnGuardar');
+            const msg = $id('msg');
+            const prev = btn.textContent;
+
+            btn.disabled = true;
+            btn.textContent = 'Guardando…';
+            msg.textContent = '';
+
+            const payload = buildPayload();
+            if (!payload.alumno.nombre_completo || !payload.alumno.sexo || !payload.alumno.nivel || !payload.alumno.grado) {
+                showToast('Completa nombre, sexo, nivel y grado', 'error');
+                btn.disabled = false; btn.textContent = prev;
+                return;
+            }
+
+            try {
+                const r = await fetch('/api/alumnos/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const j = await r.json().catch(() => ({}));
+
+                if (!r.ok) throw new Error(j.error || 'Error al guardar');
+
+                showToast('Alumno creado con éxito', 'success');
+                // Reset
+                $id('frmAlumno').reset();
+                $id('contactosWrap').innerHTML = '';
+                ensureRows(1, 5);
+                $id('col_importe').value = '';
+                $id('col_vigencia').value = '';
+                $id('col_notas').value = '';
+                msg.textContent = 'Guardado correctamente.';
+            } catch (e) {
+                console.error(e);
+                showToast('No se pudo guardar el alumno', 'error');
+                msg.textContent = e.message || 'Error al guardar.';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        }
+
+        // Init: 2 filas de contactos vacías
+        document.addEventListener('DOMContentLoaded', () => {
+            ensureRows(1, 5);
+        });
+
+        // Botones
+        document.getElementById('btnGuardar').addEventListener('click', (e) => { e.preventDefault(); guardar(); });
+        document.getElementById('btnCancelar').addEventListener('click', (e) => { e.preventDefault(); history.back(); });
+    </script>
+</body>
+
+</html>

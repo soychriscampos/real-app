@@ -1,0 +1,938 @@
+/* =========================
+   REAL — CSS CANÓNICO v1
+   ========================= */
+
+:root {
+    /* Paleta usada en editar.html */
+    --bg: #f6f8f7;
+    --card: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --brand: #065f46;
+    /* verde botón primario (editar) */
+    --brand-hover: #0a7a5f;
+    --line: #e5e7eb;
+    --radius: 12px;
+    --radius-lg: 14px;
+    --focus: #ecfdf5;
+    /* glow verde claro */
+    --focus-border: #a7f3d0;
+    --brand-soft: #ecfdf5;
+    /* fondo verde suave (ya armoniza con --focus) */
+    --brand-soft-hover: #d1fae5;
+    /* hover aún más suave */
+}
+
+/* Reset mínimo */
+* {
+    box-sizing: border-box
+}
+
+html,
+body {
+    height: 100%
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+}
+
+/* ===== Layout ===== */
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.section {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: #fff;
+    padding: 14px;
+    margin-top: 14px;
+}
+
+h1,
+h2 {
+    margin: .2rem 0 1rem
+}
+
+h3 {
+    margin: 0 0 10px
+}
+
+/* ===== Tipografía / helpers ===== */
+.muted {
+    color: var(--muted)
+}
+
+.subtle {
+    color: var(--muted);
+    font-size: 12px
+}
+
+.t-right {
+    text-align: right
+}
+
+/* ===== Form Controls ===== */
+label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    height: 44px;
+    font-size: 15px;
+    font: inherit;
+    color: inherit;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+textarea {
+    height: auto;
+    min-height: 90px;
+    resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--focus-border);
+    box-shadow: 0 0 0 3px var(--focus);
+}
+
+/* Grids (como en editar) */
+.row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px
+}
+
+.row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px
+}
+
+@media (max-width:900px) {
+
+    .row-2,
+    .row-3 {
+        grid-template-columns: 1fr
+    }
+}
+
+/* ===== Botones ===== */
+.btn {
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #f9fafb;
+    color: #111827;
+    cursor: pointer;
+    font: inherit;
+}
+
+.btn:hover {
+    background: #eef2f7
+}
+
+.btn[disabled] {
+    opacity: .6;
+    cursor: not-allowed
+}
+
+.btn.primary {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+}
+
+.btn.primary:hover {
+    background: var(--brand-hover)
+}
+
+.btn.link {
+    background: transparent;
+    border: none;
+    color: #374151;
+    padding: 0;
+    height: auto;
+    font-weight: 500;
+}
+
+.btn.small {
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+/* Acciones (alineación + separación) */
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.actions.right {
+    justify-content: flex-end
+}
+
+.actions.left {
+    justify-content: flex-start
+}
+
+.actions.center {
+    justify-content: center
+}
+
+/* ===== Fix responsive menu (cerrado por defecto en móvil) ===== */
+@media (max-width: 900px) {
+    .topbar .menu {
+        display: none !important;
+        /* fuerza cerrado */
+        position: absolute;
+        top: 60px;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        padding: 8px 12px;
+        z-index: 20;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .topbar .menu.open {
+        display: flex !important;
+        /* se abre sólo con .open */
+    }
+}
+
+/* ===== Usuario como texto + caret y dropdown ===== */
+.userdrop {
+    position: relative;
+}
+
+.userlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    padding: 6px 2px;
+    font: inherit;
+    color: #065f46;
+    /* mismo tono de tu userbox */
+    cursor: pointer;
+}
+
+.userlink:hover {
+    text-decoration: underline;
+}
+
+.caret {
+    font-size: 12px;
+    opacity: .8;
+}
+
+.usermenu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .08);
+    min-width: 180px;
+    padding: 6px;
+    display: none;
+    z-index: 30;
+}
+
+.usermenu.open {
+    display: block;
+}
+
+.useritem {
+    width: 100%;
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font: inherit;
+    color: #111827;
+    cursor: pointer;
+}
+
+.useritem:hover {
+    background: #f3f4f6;
+}
+
+/* Botón hamburguesa visible en móvil */
+.hamburger {
+    display: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font: inherit;
+    cursor: pointer;
+}
+
+@media (max-width: 900px) {
+    .hamburger {
+        display: inline-block;
+    }
+}
+
+
+/* ===== Cards / tablas (inicio) ===== */
+.card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse
+}
+
+.table th,
+.table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    text-align: left
+}
+
+/* Resultados buscador (inicio) */
+.results {
+    margin-top: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #fff;
+}
+
+.result-item+.result-item {
+    border-top: 1px solid #f3f4f6
+}
+
+.name {
+    font-weight: 600;
+    color: #111827;
+    text-decoration: none;
+    display: inline-block
+}
+
+.meta {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start
+}
+
+.actions .btn {
+    flex-shrink: 0
+}
+
+/* ===== Topbar (partial) ===== */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #fff;
+    color: #111827;
+    border-bottom: 1px solid var(--line);
+}
+
+.topbar .wrap,
+.topbar .inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+/* ===== ACTIVE estilo “pill” verde suave, basado en CANÓNICO v1 ===== */
+/* Coincide body[data-page] con data-active del link en el topbar (.menu a) */
+body[data-page="inicio"] .topbar .menu a[data-active="inicio"],
+body[data-page="finanzas"] .topbar .menu a[data-active="finanzas"],
+body[data-page="matricula"] .topbar .menu a[data-active="matricula"],
+body[data-page="alumnos"] .topbar .menu a[data-active="alumnos"],
+body[data-page="pagos"] .topbar .menu a[data-active="pagos"] {
+    background: var(--brand-soft);
+    /* = --focus */
+    color: var(--brand);
+    /* #065f46 (tu verde botón primario) */
+    border: 1px solid var(--focus-border);
+    /* #a7f3d0 (glow verde claro) */
+    font-weight: 700;
+}
+
+/* Hover del activo: un pelín más marcado, mantiene el pill */
+body[data-page="inicio"] .topbar .menu a[data-active="inicio"]:hover,
+body[data-page="finanzas"] .topbar .menu a[data-active="finanzas"]:hover,
+body[data-page="matricula"] .topbar .menu a[data-active="matricula"]:hover,
+body[data-page="alumnos"] .topbar .menu a[data-active="alumnos"]:hover,
+body[data-page="pagos"] .topbar .menu a[data-active="pagos"]:hover {
+    background: var(--brand-soft-hover);
+}
+
+
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px
+}
+
+.brand .logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: inline-block
+}
+
+.menu {
+    display: flex;
+    gap: 14px
+}
+
+.menu a {
+    color: #374151;
+    text-decoration: none;
+    font-size: 14px;
+    padding: 6px 8px;
+    border-radius: 8px;
+}
+
+.menu a:hover {
+    background: #f3f4f6
+}
+
+.menu .active {
+    background: #10b9811a;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.userbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: #065f46;
+    font-weight: bold
+}
+
+/* ===== Contactos (editar) ===== */
+.contact-head {
+    display: grid;
+    grid-template-columns: 1.2fr .9fr 1fr 1.2fr;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted)
+}
+
+.contact-row {
+    display: grid;
+    grid-template-columns: 1.2fr .9fr 1fr 1.2fr;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: start;
+}
+
+.contact-row>* {
+    align-self: start
+}
+
+.contact-row[data-flags] {
+    grid-column: 1/-1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 6px;
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.contact-row[data-flags] label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 400;
+    color: #374151;
+}
+
+.contact-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px
+}
+
+.contact-row[data-link] {
+    grid-column: 1/-1;
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 4px
+}
+
+.chev {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px
+}
+
+.chev::before {
+    content: '▸';
+    display: inline-block;
+    line-height: 1
+}
+
+.chev[data-open="true"]::before {
+    content: '▾'
+}
+
+.contact-row[data-fiscal] {
+    grid-column: 1/-1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 6px;
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.contact-row[data-fiscal] .split-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px
+}
+
+@media (max-width:900px) {
+
+    .contact-head,
+    .contact-row {
+        grid-template-columns: 1fr
+    }
+
+    .contact-row[data-flags] {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .contact-row[data-fiscal] {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* ===== Toast (editar) ===== */
+.toast {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    background: #111827;
+    color: #fff;
+    padding: 12px 14px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .15);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .25s ease;
+    z-index: 50;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0)
+}
+
+.toast.success {
+    background: #065f46
+}
+
+.toast.error {
+    background: #991b1b
+}
+
+/* ===== Utilidades espaciado rápido ===== */
+.mt-8 {
+    margin-top: 8px
+}
+
+.mt-12 {
+    margin-top: 12px
+}
+
+.mt-14 {
+    margin-top: 14px
+}
+
+.mt-16 {
+    margin-top: 16px
+}
+
+.mt-20 {
+    margin-top: 20px
+}
+
+.mb-8 {
+    margin-bottom: 8px
+}
+
+.mb-12 {
+    margin-bottom: 12px
+}
+
+.mb-16 {
+    margin-bottom: 16px
+}
+
+
+/* === Espaciado vertical para formularios apilados (login, etc.) === */
+form.row>* {
+    margin-bottom: 12px;
+}
+
+form.row>*:last-child {
+    margin-bottom: 0;
+}
+
+form.row>.actions {
+    margin-top: 18px;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.actions.right {
+    justify-content: flex-end;
+}
+
+
+/* =========================
+   INICIO (home)
+   ========================= */
+
+/* Hero centrado */
+.hero {
+    max-width: 900px;
+    margin: 18px auto 0;
+    text-align: center;
+}
+
+.hero-logo {
+    width: 120px;
+    height: auto;
+    display: block;
+    margin: 0 auto 8px;
+}
+
+.hero h1 {
+    margin: 8px 0 12px;
+}
+
+.hero .muted {
+    color: var(--muted);
+}
+
+/* Buscador centrado */
+.search {
+    margin: 18px auto;
+    max-width: 720px;
+}
+
+/* Input grande del buscador */
+.input-lg {
+    width: 100%;
+    font-size: 18px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+}
+
+.input-lg:focus {
+    border-color: #a7f3d0;
+    box-shadow: 0 0 0 3px #ecfdf5;
+    outline: none;
+}
+
+/* Resultados del buscador */
+.results {
+    margin-top: 8px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #fff;
+}
+
+.result-item+.result-item {
+    border-top: 1px solid #f3f4f6;
+}
+
+.name {
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+    display: inline-block;
+}
+
+.meta {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* Botones como componente (para <a> y <button>) */
+.btn {
+    display: inline-block;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    text-decoration: none;
+    /* quita subrayado en <a> */
+    color: var(--text);
+    font-size: 14px;
+}
+
+.btn:hover {
+    background: #f7f7f7;
+}
+
+.btn.primary {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+}
+
+.btn.primary:hover {
+    background: #fff;
+    color: #065f46;
+}
+
+/* Grid de tarjetas (Preescolar/Primaria) */
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    /* separación entre tarjetas */
+    margin-top: 10px;
+}
+
+@media (max-width: 900px) {
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.level-card h3 {
+    margin: 0 0 10px;
+}
+
+/* Píldora OK */
+.pill-ok {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+}
+
+
+/* =========================
+   pagos.html
+   ========================= */
+
+/* --- al corriente / pendiente --- */
+.badge-success {
+    background-color: #dcfce7;
+    color: #166534;
+    border-color: #22c55e;
+}
+
+.badge-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border-color: #ef4444;
+}
+
+/* --- Registrar pago: 3 columnas (responsive) --- */
+#fpago {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+    #fpago {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    #fpago {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== ALTAS: helpers de layout y toggle ===== */
+
+/* fila de 4 columnas (checks) */
+.row.cols-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+/* botón link y chevron (igual que editar) */
+.btn.link {
+    background: transparent;
+    border: none;
+    color: #374151;
+    padding: 0;
+    height: auto;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.chev {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chev::before {
+    content: '▸';
+    display: inline-block;
+    line-height: 1;
+}
+
+.chev[data-open="true"]::before {
+    content: '▾';
+}
+
+/* checkboxes alineados (sin inflar inputs) */
+.checkline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #374151;
+}
+
+/* input de teléfono con prefijo +52 dentro de .input */
+.phone-wrap {
+    display: flex;
+    align-items: center;
+    padding: 0;
+}
+
+.phone-wrap>span {
+    padding: 0 10px;
+    border-right: 1px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.phone-wrap>input {
+    border: none;
+    flex: 1;
+}
+
+/* bloque visual para cada contacto dentro de la card */
+.contact-block {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.contact-block+.contact-block {
+    margin-top: 10px;
+}
+
+
+.row-2+.row-2>div>label,
+.row-2+.row-3>div>label,
+.row-3+.row-2>div>label,
+.row-3+.row-3>div>label {
+    margin-top: 8px;
+    /* o 10px si prefieres más aire visual */
+}
+
+
+/* =========================
+   finanzas.html
+   ========================= */
+
+.list-row {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.list-row:last-child {
+    border-bottom: 0;
+}

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Inicio</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="/guard.js" defer></script>
+</head>
+
+<body data-page="inicio">
+    <div data-include="/partials/topbar2.html"></div>
+
+    <div class="container">
+        <!-- Hero (solo buscador) -->
+        <div class="hero">
+            <img src="/img/logo-real.png" alt="Logo" class="hero-logo" />
+            <h1 id="hello">Bienvenido</h1>
+            <p class="muted">Busca un alumno para registrar pagos o ver su perfil.</p>
+
+            <div class="search">
+                <input id="q" name="q_search234" class="input-lg" style="font-size:16px"
+                    placeholder="Escribe el nombre del alumno…" />
+                <div id="sugBox" class="results" style="display:none"></div>
+                <div id="sugMsg" class="muted" style="margin-top:6px"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/include.js" defer></script>
+    <script>
+        const $id = (x) => document.getElementById(x);
+
+        // --- SALUDO: Bienvenido/Bienvenida segun sexo ---
+        (async function setGreeting() {
+            try {
+                const r = await fetch('/api/me', { credentials: 'same-origin' });
+                if (!r.ok) return;
+                const j = await r.json();
+
+                // DEBUG temporal: revisa qué te devuelve
+                console.log('ME payload:', j);
+
+                const rawNombre = (j?.user?.nombre || j?.user?.username || 'Usuario');
+                const uname = String(rawNombre).trim();
+                const nombreCap = uname ? uname.charAt(0).toUpperCase() + uname.slice(1) : 'Usuario';
+
+                const rawSexo = j?.user?.sexo; // puede ser 'H', 'M', 'm', ' M ', null...
+                const sexo = (rawSexo == null) ? null : String(rawSexo).trim().toUpperCase();
+
+                const saludo = (sexo === 'M') ? 'Bienvenida' : 'Bienvenido';
+                document.getElementById('hello').textContent = `${saludo} ${nombreCap}`;
+            } catch {
+                /* deja el texto por defecto */
+            }
+        })();
+
+        // --- BUSCADOR ---
+        let searchAbort = null;
+        function renderResults(rows) {
+            const box = $id('sugBox');
+            if (!rows || !rows.length) {
+                box.style.display = 'none';
+                box.innerHTML = '';
+                $id('sugMsg').textContent = 'Sin resultados';
+                return;
+            }
+            $id('sugMsg').textContent = '';
+            box.style.display = '';
+            box.innerHTML = rows.map(r => {
+                const editarBtn = `<a class="btn" href="/editar.html?id=${encodeURIComponent(r.id)}">Editar</a>`;
+                const pagarBtn = `<a class="btn primary" href="/pagos.html?id=${encodeURIComponent(r.id)}">Pagar</a>`;
+                return `
+          <div class="result-item">
+            <div class="info">
+              <a class="name" target="_blank" href="/padres/perfil.html?id=${encodeURIComponent(r.id)}">${r.nombre_completo}</a>
+              <div class="meta">${r.nivel || ''} ${r.grado ?? ''}</div>
+            </div>
+            <div class="actions">${editarBtn}${pagarBtn}</div>
+          </div>`;
+            }).join('');
+        }
+
+        function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+        $id('q').addEventListener('input', debounce(async () => {
+            const q = $id('q').value.trim();
+            if (q.length < 2) {
+                $id('sugBox').style.display = 'none';
+                $id('sugBox').innerHTML = '';
+                $id('sugMsg').textContent = '';
+                return;
+            }
+            $id('sugMsg').textContent = 'Buscando…';
+            try {
+                if (searchAbort) searchAbort.abort();
+                searchAbort = new AbortController();
+                const r = await fetch('/api/alumnos/search?q=' + encodeURIComponent(q), { signal: searchAbort.signal });
+                const j = await r.json().catch(() => []);
+                if (!r.ok) throw new Error(j.error || 'Error');
+                renderResults(j || []);
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    $id('sugMsg').textContent = 'Error buscando alumnos';
+                    $id('sugBox').style.display = 'none';
+                }
+            } finally { searchAbort = null; }
+        }, 220));
+    </script>
+    <script src="/topbar-init.js" defer></script>
+</body>
+
+</html>

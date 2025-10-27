@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Matrícula</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/guard.js" defer></script>
+</head>
+
+<body data-page="matricula">
+    <div data-include="/partials/topbar2.html"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="card">
+            <h2 style="margin:0 0 6px">Matrícula</h2>
+            <div class="muted">
+                Ciclo actual: <span id="cicloActual">—</span> ·
+                Total de alumnos: <b id="totalAlumnos">0</b>
+            </div>
+            <div id="hdrMsg" class="subtle" style="margin-top:6px"></div>
+        </div>
+
+        <!-- Resumen por nivel -->
+        <div class="row-2 mt-12">
+            <div class="card">
+                <h3 style="margin:0 0 10px">Preescolar</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Grado</th>
+                            <th>Hombres</th>
+                            <th>Mujeres</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblPre"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td>Total SEP</td>
+                            <td id="pre_HO"></td>
+                            <td id="pre_MO"></td>
+                            <td id="pre_TO"></td>
+                        </tr>
+                        <tr>
+                            <td>Total Plantel</td>
+                            <td id="pre_H"></td>
+                            <td id="pre_M"></td>
+                            <td id="pre_T"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3 style="margin:0 0 10px">Primaria</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Grado</th>
+                            <th>Hombres</th>
+                            <th>Mujeres</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblPri"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td>Total SEP</td>
+                            <td id="pri_HO"></td>
+                            <td id="pri_MO"></td>
+                            <td id="pri_TO"></td>
+                        </tr>
+                        <tr>
+                            <td>Total Plantel</td>
+                            <td id="pri_H"></td>
+                            <td id="pri_M"></td>
+                            <td id="pri_T"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Alumnos-->
+        <div class="card mt-12">
+            <h3 style="margin:0 0 10px">Alumnos</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Nivel</th>
+                        <th>Grado</th>
+                    </tr>
+                </thead>
+                <tbody id="tblAlumnosAll">
+                    <tr>
+                        <td class="muted" colspan="3">Cargando…</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- No oficiales -->
+        <div class="card mt-12">
+            <h3 style="margin:0 0 10px">Lista de alumnos no oficiales</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Nivel</th>
+                        <th>Grado</th>
+                    </tr>
+                </thead>
+                <tbody id="tblNoOf"></tbody>
+            </table>
+        </div>
+
+        <!-- Bajas -->
+        <div class="card mt-12">
+            <h3 style="margin:0 0 10px">Alumnos dados de baja</h3>
+            <div class="muted">Total: <b id="totalBajas">0</b></div>
+            <table class="table" style="margin-top:8px">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Nivel</th>
+                        <th>Grado</th>
+                    </tr>
+                </thead>
+                <tbody id="tblBajas"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/include.js" defer></script>
+    <script src="/topbar-init.js" defer></script>
+    <script>
+        // ===== Helpers =====
+        const $id = (x) => document.getElementById(x);
+
+        async function getJson(url) {
+            const r = await fetch(url, { credentials: 'same-origin' });
+            const t = await r.text();
+            let j = {};
+            try { j = JSON.parse(t); } catch { j = {}; }
+            if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status + ' · ' + t));
+            return j;
+        }
+
+        function ensureArray(any) {
+            if (Array.isArray(any)) return any;
+            if (any && any.alumnos && Array.isArray(any.alumnos)) return any.alumnos;
+            return [];
+        }
+
+        // ===== Role check (solo STAFF) =====
+        async function requireStaff() {
+            const me = await getJson('/api/me'); // { user: { type } }
+            const role = (me?.user?.type || '').toUpperCase();
+            if (!['ADMIN', 'SUBADMIN', 'CAJA'].includes(role)) {
+                location.replace('/inicio.html');
+                throw new Error('No autorizado');
+            }
+            return role;
+        }
+
+        // ===== Datos base =====
+        async function getCicloActual() {
+            try {
+                const j = await getJson('/api/param?keys=ciclo_actual');
+                return j?.ciclo_actual || '';
+            } catch { return ''; }
+        }
+
+        async function getAlumnosList() {
+            // /api/alumnos/list devuelve: id, nombre_completo, nivel, grado, sexo, oficial_sep (bool), estatus
+            const j = await getJson('/api/alumnos/list');
+            return ensureArray(j);
+        }
+
+        // ===== Resumen por nivel/grado =====
+        function buildResumen(alumnos, nivel, tblBodyId, footerPrefix) {
+            const rows = alumnos.filter(a =>
+                (a.nivel || '').toLowerCase() === nivel.toLowerCase() &&
+                String(a.estatus || '').toUpperCase() !== 'BAJA'
+            );
+
+            const GRADOS = { 'Preescolar': ['1', '2', '3'], 'Primaria': ['1', '2', '3', '4', '5', '6'] };
+            const byGrado = new Map();
+            GRADOS[nivel].forEach(g => byGrado.set(g, { H: 0, M: 0, total: 0, HO: 0, MO: 0, TO: 0 }));
+
+            rows.forEach(a => {
+                const g = String(a.grado ?? '').trim();
+                if (!byGrado.has(g)) return;
+                const sex = (String(a.sexo || '').trim().toUpperCase() === 'M') ? 'M' : 'H';
+                const r = byGrado.get(g);
+                r[sex]++; r.total++;
+                if (a.oficial_sep) {
+                    if (sex === 'H') r.HO++; else r.MO++;
+                    r.TO++;
+                }
+            });
+
+            const tbody = document.getElementById(tblBodyId);
+            tbody.innerHTML = GRADOS[nivel].map(g => {
+                const r = byGrado.get(g);
+                return `<tr><td>${g}</td><td>${r.H}</td><td>${r.M}</td><td>${r.total}</td></tr>`;
+            }).join('');
+
+            let H = 0, M = 0, T = 0, HO = 0, MO = 0, TO = 0;
+            GRADOS[nivel].forEach(g => {
+                const r = byGrado.get(g);
+                H += r.H; M += r.M; T += r.total;
+                HO += r.HO; MO += r.MO; TO += r.TO;
+            });
+
+            const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            setTxt(footerPrefix + 'HO', HO);
+            setTxt(footerPrefix + 'MO', MO);
+            setTxt(footerPrefix + 'TO', TO);
+            setTxt(footerPrefix + 'H', H);
+            setTxt(footerPrefix + 'M', M);
+            setTxt(footerPrefix + 'T', T);
+        }
+
+        // ===== Orden: nivel → grado → nombre =====
+        function nivelRank(n) {
+            const s = String(n || '').trim().toLowerCase();
+            if (s === 'preescolar') return 0;
+            if (s === 'primaria') return 1;
+            return 9;
+        }
+        function gradoNum(g) {
+            const n = Number(g);
+            return Number.isFinite(n) ? n : 99;
+        }
+        function cmpAlumno(a, b) {
+            const nr = nivelRank(a.nivel) - nivelRank(b.nivel);
+            if (nr !== 0) return nr;
+            const gr = gradoNum(a.grado) - gradoNum(b.grado);
+            if (gr !== 0) return gr;
+            const an = String(a.nombre_completo || '');
+            const bn = String(b.nombre_completo || '');
+            return an.localeCompare(bn, 'es', { sensitivity: 'base' });
+        }
+
+        // ===== Escapar HTML simple =====
+        function h(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        // ===== Alumnos (tabla completa) =====
+        function renderAlumnosAll(alumnos) {
+            const body = document.getElementById('tblAlumnosAll');
+            const rows = (alumnos || []).filter(a =>
+                String(a.estatus || '').toUpperCase() !== 'BAJA'
+            ).sort(cmpAlumno);
+
+            if (!rows.length) {
+                body.innerHTML = '<tr><td class="muted" colspan="3">Sin alumnos.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = rows.map(a => `
+      <tr>
+        <td>
+          <a class="name" href="/padres/perfil.html?id=${encodeURIComponent(a.id)}">
+            ${h(a.nombre_completo || 'Alumno')}
+          </a>
+        </td>
+        <td>${h(a.nivel || '')}</td>
+        <td>${h(a.grado ?? '')}</td>
+      </tr>
+    `).join('');
+        }
+
+        // ===== No oficiales & Bajas (mismo orden) =====
+        function renderNoOficiales(alumnos) {
+            const body = document.getElementById('tblNoOf');
+            const list = (alumnos || [])
+                .filter(a => !a.oficial_sep && String(a.estatus || '').toUpperCase() !== 'BAJA')
+                .sort(cmpAlumno);
+
+            body.innerHTML = list.length
+                ? list.map(a => `<tr>
+          <td>${h(a.nombre_completo || '')}</td>
+          <td>${h(a.nivel || '')}</td>
+          <td>${h(a.grado ?? '')}</td>
+        </tr>`).join('')
+                : '<tr><td class="muted" colspan="3">Sin alumnos no oficiales.</td></tr>';
+        }
+
+        function renderBajas(alumnos) {
+            const body = document.getElementById('tblBajas');
+            const list = (alumnos || [])
+                .filter(a => String(a.estatus || '').toUpperCase() === 'BAJA')
+                .sort(cmpAlumno);
+
+            document.getElementById('totalBajas').textContent = list.length;
+
+            body.innerHTML = list.length
+                ? list.map(a => `<tr>
+          <td>${h(a.nombre_completo || '')}</td>
+          <td>${h(a.nivel || '')}</td>
+          <td>${h(a.grado ?? '')}</td>
+        </tr>`).join('')
+                : '<tr><td class="muted" colspan="3">No hay bajas registradas.</td></tr>';
+        }
+
+        // ===== Init =====
+        document.addEventListener('DOMContentLoaded', async () => {
+            const hdrMsg = $id('hdrMsg');
+            try {
+                await requireStaff(); // redirige si no es staff
+                const ciclo = await getCicloActual();
+                $id('cicloActual').textContent = ciclo || '—';
+
+                const alumnos = await getAlumnosList();
+                const activos = alumnos.filter(a => String(a.estatus || '').toUpperCase() !== 'BAJA');
+                $id('totalAlumnos').textContent = activos.length;
+
+                // Resumen por nivel
+                buildResumen(alumnos, 'Preescolar', 'tblPre', 'pre_');
+                buildResumen(alumnos, 'Primaria', 'tblPri', 'pri_');
+
+                // Alumnos completos
+                renderAlumnosAll(alumnos);
+
+                // No oficiales / Bajas
+                renderNoOficiales(alumnos);
+                renderBajas(alumnos);
+
+                hdrMsg.textContent = '';
+            } catch (e) {
+                console.error(e);
+                hdrMsg.textContent = 'No fue posible cargar la matrícula.';
+            }
+        });
+    </script>
+
+</body>
+
+</html>

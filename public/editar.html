@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Editar alumno</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="/guard.js" defer></script>
+</head>
+
+<body data-page="editar" autocomplete="off">
+    <div data-include="/partials/topbar2.html"></div>
+
+    <div class="container">
+        <h2>Editar alumno</h2>
+
+        <!-- DATOS DEL ALUMNO -->
+        <div class="section">
+            <h3>Datos del alumno</h3>
+            <form id="frmAlumno" autocomplete="off">
+                <div class="row-2">
+                    <div>
+                        <label>Nombre completo</label>
+                        <input id="nombre_completo" name="nombre_completo" required autocomplete="off" />
+                    </div>
+                    <div>
+                        <label>Sexo</label>
+                        <select id="sexo" name="sexo" required autocomplete="off">
+                            <option value="">Selecciona</option>
+                            <option value="H">Hombre</option>
+                            <option value="M">Mujer</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row-3">
+                    <div>
+                        <label>Nivel</label>
+                        <select id="nivel" name="nivel" required autocomplete="off">
+                            <option value="">Selecciona</option>
+                            <option value="Preescolar">Preescolar</option>
+                            <option value="Primaria">Primaria</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Grado</label>
+                        <select id="grado" name="grado" required autocomplete="off">
+                            <option value="">Selecciona</option>
+                            <option value="1">1°</option>
+                            <option value="2">2°</option>
+                            <option value="3">3°</option>
+                            <option value="4">4°</option>
+                            <option value="5">5°</option>
+                            <option value="6">6°</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Estatus</label>
+                        <select id="estatus" name="estatus" required autocomplete="off">
+                            <option value="ACTIVO">Activo</option>
+                            <option value="BAJA">Baja</option>
+                            <option value="EGRESADO">Egresado</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row-2">
+                    <div>
+                        <label>Oficial SEP</label>
+                        <select id="oficial_sep" name="oficial_sep" required autocomplete="off">
+                            <option value="false">No</option>
+                            <option value="true">Sí</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Fecha de nacimiento</label>
+                        <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" autocomplete="off" />
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- COLEGIATURA VIGENTE -->
+        <div class="section">
+            <h3>Colegiatura vigente</h3>
+            <div id="colActual" class="muted" style="margin:6px 0 10px">Cargando...</div>
+            <div class="subtle" style="margin-bottom:8px">Sólo llenar los campos si se requiere hacer modificaciones a
+                la colegiatura.</div>
+            <div class="row-3">
+                <div>
+                    <label>Importe base</label>
+                    <input id="col_importe" inputmode="decimal" placeholder="0.00" autocomplete="off" />
+                </div>
+                <div>
+                    <label>Vigencia desde</label>
+                    <input id="col_vigencia" type="date" autocomplete="off" />
+                </div>
+                <div>
+                    <label>Notas</label>
+                    <input id="col_notas" placeholder="Opcional" autocomplete="off" />
+                </div>
+            </div>
+        </div>
+
+        <!-- INSCRIPCIÓN (CICLO ACTUAL) -->
+        <div class="section">
+            <h3>Inscripción (ciclo actual)</h3>
+            <div id="insActual" class="muted" style="margin:6px 0 10px">Cargando...</div>
+            <div class="subtle" style="margin-bottom:8px">
+                Puedes capturar una <b>fecha de vigencia</b> anterior al inicio del ciclo si fue preinscripción.
+            </div>
+            <div class="row-3">
+                <div>
+                    <label>Importe base</label>
+                    <input id="ins_importe" inputmode="decimal" placeholder="0.00" autocomplete="off" />
+                </div>
+                <div>
+                    <label>Vigencia desde</label>
+                    <input id="ins_vigencia" type="date" autocomplete="off" />
+                </div>
+                <div>
+                    <label>Notas</label>
+                    <input id="ins_notas" placeholder="Opcional" autocomplete="off" />
+                </div>
+            </div>
+        </div>
+
+        <!-- PADRES / TUTORES -->
+        <div class="section">
+            <h3>Padres / Tutores</h3>
+            <div class="subtle">El máximo de contactos permitidos por alumno es 5.</div>
+
+            <div class="contact-head" style="margin-top:8px">
+                <div>Nombre</div>
+                <div>Parentesco</div>
+                <div>WhatsApp</div>
+                <div>Email</div>
+            </div>
+            <div id="contactosWrap"></div>
+
+            <div class="actions" style="justify-content:flex-start">
+                <button class="btn" id="btnAddContacto">+ Agregar tutor</button>
+            </div>
+        </div>
+
+        <!-- ACCIONES -->
+        <div class="actions right">
+            <button class="btn" id="btnCancelar">Cancelar</button>
+            <button class="btn primary" id="btnGuardar">Guardar cambios</button>
+        </div>
+        <div id="msg" class="muted"></div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="/topbar-init.js" defer></script>
+    <script>
+        const $id = (x) => document.getElementById(x);
+        const qs = (k) => new URLSearchParams(location.search).get(k);
+        const toMoney = (s) => { if (s === null || s === undefined) return null; const n = Number(String(s).replace(/,/g, '').trim()); return Number.isFinite(n) ? n : null; };
+        const fmtDMY = (s) => s ? (() => { const [y, m, d] = s.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })() : '';
+
+        let ALUMNO_ID = null;
+
+        /* ===== Toast ===== */
+        let __toastTimer = null;
+        function showToast(msg, type = 'success') {
+            const t = $id('toast');
+            if (__toastTimer) { clearTimeout(__toastTimer); __toastTimer = null; }
+            t.className = 'toast ' + (type === 'error' ? 'error' : 'success');
+            t.textContent = msg;
+            void t.offsetWidth;
+            t.classList.add('show');
+            __toastTimer = setTimeout(() => { t.classList.remove('show'); __toastTimer = null; }, 2400);
+        }
+
+        function parentescoOptions(sel) {
+            const opts = ['Mamá', 'Papá', 'Abuela', 'Abuelo', 'Tía', 'Tío', 'Prima', 'Primo', 'Hermana', 'Hermano', 'Tutor', 'Otro'];
+            return opts.map(o => `<option ${sel === o ? 'selected' : ''}>${o}</option>`).join('');
+        }
+
+        function contactRowTpl(idx, c = {}) {
+            const waLocal = (c.whatsapp || '').replace(/^\+52/, '');
+            return `
+        <!-- Fila 1: básicos -->
+        <div class="contact-row" data-idx="${idx}">
+          <input class="c_nombre" placeholder="Nombre" value="${c.nombre || ''}"/>
+          <select class="c_parentesco" aria-label="Parentesco">
+            <option value="">— Parentesco —</option>
+            ${parentescoOptions(c.parentesco || '')}
+          </select>
+          <input class="c_wa" placeholder="10 dígitos" value="${waLocal || ''}" />
+          <input class="c_email" placeholder="correo@dominio.com" value="${c.email || ''}"/>
+          <input type="hidden" class="c_tutor_id" value="${c.tutor_id || ''}"/>
+        </div>
+
+        <!-- Fila 2: consentimientos -->
+        <div class="contact-row" data-idx="${idx}" data-flags>
+          <label><input type="checkbox" class="c_via_wa" ${c.via_whatsapp ? 'checked' : ''}/> Recibe WhatsApp</label>
+          <label><input type="checkbox" class="c_via_email" ${c.via_email ? 'checked' : ''}/> Recibe Email</label>
+          <label><input type="checkbox" class="c_consent" ${c.consentimiento_mensajes ? 'checked' : ''}/> Consentimiento</label>
+          <label><input type="checkbox" class="c_fact" ${c.recibe_factura ? 'checked' : ''}/> ¿Recibe factura?</label>
+        </div>
+
+        <!-- Fila 3: enlace toggle (IZQUIERDA + chevron) -->
+        <div class="contact-row" data-idx="${idx}" data-link>
+          <button class="btn link chev toggleFiscal" type="button" aria-expanded="false">Datos fiscales</button>
+        </div>
+
+        <!-- Fila toggle: datos fiscales -->
+        <div class="contact-row" data-idx="${idx}" data-fiscal="1" style="display:none">
+          <input class="c_rfc" placeholder="RFC" value="${c.rfc || ''}"/>
+          <input class="c_razon" placeholder="Razón social" value="${c.razon_social || ''}"/>
+          <input class="c_cp" placeholder="CP fiscal" value="${c.cp_fiscal || ''}"/>
+          <div class="split-2">
+            <input class="c_regimen" placeholder="Régimen fiscal" value="${c.regimen_fiscal || ''}"/>
+            <input class="c_cfd" placeholder="Uso CFDI" value="${c.uso_cfdi || ''}"/>
+          </div>
+        </div>`;
+        }
+
+        function wireFiscalToggles(scope = document) {
+            scope.querySelectorAll('.toggleFiscal').forEach(btn => {
+                btn.classList.add('chev');
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    const idx = btn.closest('.contact-row')?.getAttribute('data-idx');
+                    const fisc = document.querySelector(`.contact-row[data-idx="${idx}"][data-fiscal="1"]`);
+                    if (!fisc) return;
+                    const open = (fisc.style.display === 'none' || !fisc.style.display);
+                    fisc.style.display = open ? 'grid' : 'none';
+                    btn.setAttribute('aria-expanded', String(open));
+                    if (open) btn.dataset.open = 'true'; else btn.removeAttribute('data-open');
+                };
+            });
+        }
+
+        function ensureRows(min = 2, max = 5) {
+            const wrap = $id('contactosWrap');
+            let normals = Array.from(wrap.querySelectorAll('.contact-row:not([data-fiscal]):not([data-flags]):not([data-link])'));
+            if (!normals.length) {
+                wrap.innerHTML = '';
+                for (let i = 0; i < min; i++) wrap.insertAdjacentHTML('beforeend', contactRowTpl(i));
+                wireFiscalToggles(wrap);
+            } else {
+                normals.forEach((r, i) => {
+                    const old = r.getAttribute('data-idx');
+                    r.setAttribute('data-idx', i);
+                    ['data-flags', 'data-link', 'data-fiscal'].forEach(attr => {
+                        const sec = wrap.querySelector(`.contact-row[data-idx="${old}"][${attr}]`);
+                        if (sec) sec.setAttribute('data-idx', i);
+                    });
+                });
+            }
+            const btnAdd = $id('btnAddContacto');
+            btnAdd.onclick = (e) => {
+                e.preventDefault();
+                const curr = wrap.querySelectorAll('.contact-row:not([data-fiscal]):not([data-flags]):not([data-link])').length;
+                if (curr >= max) return;
+                wrap.insertAdjacentHTML('beforeend', contactRowTpl(curr));
+                wireFiscalToggles(wrap);
+            };
+        }
+
+        async function cargar() {
+            ALUMNO_ID = qs('id');
+            if (!ALUMNO_ID) { $id('msg').innerHTML = '<div class="error">Falta id</div>'; return; }
+
+            try {
+                const r = await fetch(`/api/alumnos/get_full?id=${encodeURIComponent(ALUMNO_ID)}`);
+                const j = await r.json();
+                if (!r.ok) throw new Error(j.error || 'Error');
+
+                const a = j.alumno || {};
+                const cs = j.contactos || [];
+                const col = j.colegiatura || null;
+
+                // Inscripción
+                const ins = j.inscripcion || null;
+                const insI = $id('ins_importe'), invI = $id('ins_vigencia'), insN = $id('ins_notas');
+                $id('insActual').textContent = ins
+                    ? `Actual: $${Number(ins.importe_base || 0).toFixed(2)}  Vigencia desde: ${fmtDMY(ins.vigencia_desde)}${ins.notas ? `  Notas: ${ins.notas}` : ''}`
+                    : 'Actual: —';
+                if (insI) insI.value = '';
+                if (invI) invI.value = '';
+                if (insN) insN.value = '';
+
+                // Alumno
+                $id('nombre_completo').value = a.nombre_completo || '';
+                $id('sexo').value = a.sexo || '';
+                $id('nivel').value = a.nivel || '';
+                $id('grado').value = a.grado ?? '';
+                $id('estatus').value = a.estatus || 'ACTIVO';
+                $id('oficial_sep').value = a.oficial_sep ? 'true' : 'false';
+                $id('fecha_nacimiento').value = a.fecha_nacimiento ? a.fecha_nacimiento.slice(0, 10) : '';
+
+                // Contactos
+                const wrap = $id('contactosWrap'); wrap.innerHTML = '';
+                (Array.isArray(cs) ? cs : []).slice(0, 5).forEach((c, i) => wrap.insertAdjacentHTML('beforeend', contactRowTpl(i, c)));
+                const count = Array.isArray(cs) ? cs.length : 0;
+                if (count < 2) { for (let i = count; i < 2; i++) wrap.insertAdjacentHTML('beforeend', contactRowTpl(i, {})); }
+                wireFiscalToggles(wrap);
+                ensureRows(2, 5);
+
+                // Colegiatura (leyenda + limpiar inputs)
+                $id('colActual').textContent = col
+                    ? `Actual: $${Number(col.importe_base || 0).toFixed(2)}  Vigencia desde: ${fmtDMY(col.vigencia_desde)}${col.notas ? `  Notas:${col.notas}` : ''}`
+                    : 'Actual: —';
+                const impI = $id('col_importe'), vigI = $id('col_vigencia'), notI = $id('col_notas');
+                impI.value = ''; impI.setAttribute('value', ''); impI.setAttribute('autocomplete', 'off');
+                vigI.value = ''; vigI.setAttribute('value', ''); vigI.setAttribute('autocomplete', 'off');
+                notI.value = ''; notI.setAttribute('value', ''); notI.setAttribute('autocomplete', 'off');
+
+                $id('msg').innerHTML = '';
+            } catch (e) {
+                console.error(e);
+                $id('msg').innerHTML = '<div class="error">No se pudo cargar la información</div>';
+            }
+        }
+
+        function buildPayload() {
+            const alumno = {
+                nombre_completo: $id('nombre_completo').value.trim(),
+                sexo: $id('sexo').value,
+                nivel: $id('nivel').value,
+                grado: Number($id('grado').value || 0),
+                estatus: $id('estatus').value,
+                oficial_sep: $id('oficial_sep').value === 'true',
+                fecha_nacimiento: $id('fecha_nacimiento').value || null
+            };
+
+            const normals = Array.from($id('contactosWrap').querySelectorAll('.contact-row:not([data-fiscal]):not([data-flags]):not([data-link])'));
+            const contactos = normals.map(r => {
+                const idx = Number(r.getAttribute('data-idx') || 0);
+                const flags = document.querySelector(`.contact-row[data-idx="${idx}"][data-flags]`);
+                const fisc = document.querySelector(`.contact-row[data-idx="${idx}"][data-fiscal]`);
+                const local10 = (r.querySelector('.c_wa').value || '').replace(/\D/g, '').slice(0, 10);
+                const whatsapp = local10 ? `+52${local10}` : null;
+
+                return {
+                    idx,
+                    tutor_id: (r.querySelector('.c_tutor_id').value || null),
+                    nombre: (r.querySelector('.c_nombre').value || '').trim(),
+                    parentesco: (r.querySelector('.c_parentesco').value || '').trim(),
+                    whatsapp,
+                    email: (r.querySelector('.c_email').value || '').trim().toLowerCase(),
+                    via_whatsapp: !!(flags && flags.querySelector('.c_via_wa')?.checked),
+                    via_email: !!(flags && flags.querySelector('.c_via_email')?.checked),
+                    consentimiento_mensajes: !!(flags && flags.querySelector('.c_consent')?.checked),
+                    recibe_factura: !!(flags && flags.querySelector('.c_fact')?.checked),
+                    rfc: (fisc && fisc.querySelector('.c_rfc')?.value || '').trim(),
+                    razon_social: (fisc && fisc.querySelector('.c_razon')?.value || '').trim(),
+                    cp_fiscal: (fisc && fisc.querySelector('.c_cp')?.value || '').trim(),
+                    regimen_fiscal: (fisc && fisc.querySelector('.c_regimen')?.value || '').trim(),
+                    uso_cfdi: (fisc && fisc.querySelector('.c_cfd')?.value || '').trim()
+                };
+            }).filter(x => x.nombre);
+
+            // Colegiatura (solo si hay cambios)
+            const impRaw = $id('col_importe').value;
+            const imp = toMoney(impRaw);
+            const vig = $id('col_vigencia').value || null;
+            const notasRaw = ($id('col_notas').value || '').trim();
+            const anyChange = (impRaw && imp !== null) || !!vig || !!notasRaw;
+            let colegiatura = null;
+            if (anyChange) {
+                colegiatura = {};
+                if (imp !== null) colegiatura.importe_base = imp;
+                if (vig) colegiatura.vigencia_desde = vig;
+                if (notasRaw) colegiatura.notas = notasRaw;
+                if (!Object.keys(colegiatura).length) colegiatura = null;
+            }
+
+            // Inscripción (solo si hay algo)
+            const insRaw = $id('ins_importe').value;
+            const insImp = toMoney(insRaw);
+            const insVig = $id('ins_vigencia').value || null;
+            const insNotas = ($id('ins_notas').value || '').trim();
+            const insAny = (insRaw && insImp !== null) || !!insVig || !!insNotas;
+            let inscripcion = null;
+            if (insAny) {
+                inscripcion = {};
+                if (insImp !== null) inscripcion.importe_base = insImp;
+                if (insVig) inscripcion.vigencia_desde = insVig; // puede ser anterior al ciclo
+                if (insNotas) inscripcion.notas = insNotas;
+                if (!Object.keys(inscripcion).length) inscripcion = null;
+            }
+
+            return { id: ALUMNO_ID, alumno, contactos, colegiatura, inscripcion };
+        }
+
+        async function guardar() {
+            const btn = $id('btnGuardar');
+            const msg = $id('msg');
+            const prev = btn.textContent;
+
+            // Validaciones rápidas
+            const payload = buildPayload();
+            if (!payload.alumno.nombre_completo || !payload.alumno.sexo || !payload.alumno.nivel || !payload.alumno.grado) {
+                showToast('Completa nombre, sexo, nivel y grado', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Guardando…';
+            msg.innerHTML = '';
+
+            try {
+                const r = await fetch('/api/alumnos/update_full', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!r.ok) {
+                    let errMsg = 'Error al guardar';
+                    try { const je = await r.json(); if (je && je.error) errMsg = je.error; } catch { }
+                    throw new Error(errMsg);
+                }
+
+                showToast('Datos actualizados con éxito', 'success');
+
+                // refresca y limpia campos variables
+                try { await cargar(); }
+                catch (e) {
+                    console.warn('Guardó pero no se pudo refrescar:', e);
+                    msg.innerHTML = '<span class="muted">Guardado correctamente, pero no se pudo refrescar los datos.</span>';
+                }
+                // limpiar inputs de inscripción
+                $id('ins_importe').value = '';
+                $id('ins_vigencia').value = '';
+                $id('ins_notas').value = '';
+            } catch (e) {
+                console.error(e);
+                showToast('No se pudieron guardar los cambios', 'error');
+                msg.innerHTML = e.message || 'Error al guardar.';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        }
+
+        document.getElementById('btnGuardar').addEventListener('click', (e) => { e.preventDefault(); guardar(); });
+        document.getElementById('btnCancelar').addEventListener('click', (e) => { e.preventDefault(); history.back(); });
+        document.addEventListener('DOMContentLoaded', cargar);
+    </script>
+</body>
+
+</html>

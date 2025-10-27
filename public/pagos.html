@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Registrar pago</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="/guard.js" defer></script>
+</head>
+
+<body data-page="pagos">
+    <div data-include="/partials/topbar2.html"></div>
+
+    <div class="container" style="max-width:1100px">
+        <!-- ENCABEZADO -->
+        <div class="card">
+            <div class="row" style="gap:8px">
+                <div>
+                    <h2 id="alumnoTitulo" style="margin:0 0 6px">Alumno</h2>
+                    <div id="alumnoMeta" class="subtle"></div>
+                </div>
+                <div id="infoCiclo" class="subtle"></div>
+            </div>
+
+            <!-- Estado (badge con fondo suave) -->
+            <div id="estado" class="helper" style="margin-top:10px">Cargando datos…</div>
+        </div>
+
+        <!-- DESGLOSE -->
+        <div class="row cols-2" style="margin-top:14px; gap:14px">
+            <div class="card">
+                <h3 style="margin:0 0 10px">Desglose por periodo</h3>
+                <table class="table" id="desglose"></table>
+            </div>
+        </div>
+
+        <!-- HISTORIAL -->
+        <div class="row cols-2" style="margin-top:14px; gap:14px">
+            <div class="card">
+                <h3 style="margin:0 0 10px">Historial de pagos (ciclo actual)</h3>
+                <table class="table" id="hist"></table>
+            </div>
+        </div>
+
+        <!-- FORMULARIO DE PAGO -->
+        <div class="card" style="margin-top:14px">
+            <h3 style="margin:0 0 10px">Registrar nuevo pago</h3>
+            <div class="helper" style="margin:6px 0 12px">
+                Tip: si es una <b>preinscripción pagada antes del ciclo</b>, captura la <b>fecha real del pago</b>
+                (anterior al inicio del ciclo). Así se refleja en este ciclo, pero no se cuenta como ingreso del ciclo.
+            </div>
+
+            <!-- 3 por fila (6 campos => 2 filas en desktop) -->
+            <form id="fpago" class="row cols-3">
+                <div>
+                    <label>Fecha</label>
+                    <input class="input" name="fecha_pago" id="fecha_pago" type="date" required />
+                </div>
+                <div>
+                    <label>Monto total</label>
+                    <input class="input" name="monto_total" id="monto_total" type="number" min="0" step="0.01"
+                        placeholder="0.00" required />
+                </div>
+                <div>
+                    <label>Tipo de pago</label>
+                    <select class="input" name="tipo_de_pago" required>
+                        <option value="Colegiatura">Colegiatura</option>
+                        <option value="Inscripción">Inscripción</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Método de pago</label>
+                    <select class="input" name="metodo_de_pago" required>
+                        <option>Efectivo</option>
+                        <option>Transferencia</option>
+                        <option>Tarjeta</option>
+                        <option>Otro</option>
+                    </select>
+                </div>
+
+                <!-- Recibió (admin elige; no-admin se fija) -->
+                <div id="recibio_wrap">
+                    <label>Recibió</label>
+                    <select id="recibio_sel" class="input">
+                        <option>Christian</option>
+                        <option>Fran</option>
+                        <option>Citlali</option>
+                        <option>Otro</option>
+                    </select>
+                    <input id="recibio_otro" class="input" placeholder="Nombre…" style="margin-top:6px; display:none" />
+                </div>
+                <input type="hidden" name="recibio" id="recibio_hidden" />
+
+                <div>
+                    <label>Observaciones</label>
+                    <input class="input" name="observaciones" placeholder="Notas internas (opcional)" />
+                </div>
+            </form>
+        </div>
+
+        <!-- ACCIONES (fuera del card, a la derecha) -->
+        <div class="actions right" style="margin-top:12px">
+            <button class="btn" id="btnCancelar" type="button">Cancelar</button>
+            <button class="btn primary" id="btnGuardar" type="button">Guardar pago</button>
+        </div>
+        <div id="msg" class="subtle" style="margin-top:6px"></div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="/include.js" defer></script>
+    <script src="/topbar-init.js" defer></script>
+    <script src="/utils.js" defer></script>
+    <script>
+        // Utils
+        const $id = (x) => document.getElementById(x);
+        const qs = (k) => new URLSearchParams(location.search).get(k);
+        const fmt = (n) => (window.fmtMXN ? fmtMXN(n) : ('$' + Number(n || 0).toFixed(2)));
+
+        // Toast
+        let __toastTimer = null;
+        function showToast(msg, type = 'success') {
+            const t = $id('toast');
+            if (__toastTimer) { clearTimeout(__toastTimer); __toastTimer = null; }
+            t.className = 'toast ' + (type === 'error' ? 'error' : 'success');
+            t.textContent = msg;
+            void t.offsetWidth;
+            t.classList.add('show');
+            __toastTimer = setTimeout(() => { t.classList.remove('show'); __toastTimer = null; }, 2400);
+        }
+
+        // Estado global
+        let ALUMNO_ID = null;
+        let CICLO = '';
+        let periodos = [];
+
+        // Recibió (roles)
+        const selRec = $id('recibio_sel');
+        const inpOtro = $id('recibio_otro');
+        const hidRec = $id('recibio_hidden');
+        const recWrap = $id('recibio_wrap');
+
+        const mapUserToDisplay = { admin: 'Christian', christian: 'Christian', fran: 'Fran', citlali: 'Citlali' };
+        function displayFromUsername(u) {
+            if (!u) return 'Christian';
+            const k = String(u).toLowerCase();
+            return mapUserToDisplay[k] || (k.charAt(0).toUpperCase() + k.slice(1));
+        }
+        function setupRecibioForUser(username) {
+            const isAdmin = ['admin', 'christian'].includes(String(username || '').toLowerCase());
+            const display = displayFromUsername(username);
+            if (!isAdmin) {
+                if (recWrap) recWrap.style.display = 'none';
+                if (hidRec) hidRec.value = display;
+            } else {
+                if (selRec) selRec.value = 'Christian';
+                if (hidRec) hidRec.value = 'Christian';
+                const toggleOtro = () => {
+                    const showOtro = (selRec && selRec.value === 'Otro');
+                    if (inpOtro) inpOtro.style.display = showOtro ? '' : 'none';
+                    if (!showOtro && inpOtro) inpOtro.value = '';
+                    if (hidRec) hidRec.value = showOtro ? (inpOtro.value || '') : (selRec ? selRec.value : 'Christian');
+                };
+                if (selRec) selRec.addEventListener('change', toggleOtro);
+                if (inpOtro) inpOtro.addEventListener('input', () => {
+                    if (selRec && selRec.value === 'Otro' && hidRec) hidRec.value = inpOtro.value || '';
+                });
+                toggleOtro();
+            }
+        }
+        async function initRecibio() {
+            try {
+                const r = await fetch('/api/me', { credentials: 'same-origin' });
+                if (r.status === 200) {
+                    const j = await r.json();
+                    const u = j?.user?.username || null;
+                    if (u) localStorage.setItem('username', u);
+                    setupRecibioForUser(u);
+                } else {
+                    const ls = localStorage.getItem('username');
+                    setupRecibioForUser(ls || null);
+                }
+            } catch {
+                const ls = localStorage.getItem('username');
+                setupRecibioForUser(ls || null);
+            }
+        }
+
+        // Alumno
+        async function cargarAlumno() {
+            try {
+                const r = await fetch('/api/alumnos/get_full?id=' + encodeURIComponent(ALUMNO_ID));
+                const j = await r.json();
+                if (!r.ok) throw new Error(j.error || 'Error');
+                const a = j.alumno || {};
+                $id('alumnoTitulo').textContent = a.nombre_completo || 'Alumno';
+                const meta = [(a.nivel || '').trim(), (a.grado ?? '').toString().trim()].filter(Boolean).join(' · ');
+                $id('alumnoMeta').textContent = meta;
+            } catch {
+                $id('alumnoTitulo').textContent = 'Alumno';
+                $id('alumnoMeta').textContent = '';
+            }
+        }
+
+        // Ciclo
+        async function cargarCiclo() {
+            try {
+                const r = await fetch('/api/param?keys=ciclo_actual');
+                const j = await r.json();
+                CICLO = j?.ciclo_actual || '';
+                $id('infoCiclo').textContent = CICLO ? 'Ciclo actual: ' + CICLO : '';
+            } catch {
+                CICLO = '';
+                $id('infoCiclo').textContent = '';
+            }
+        }
+
+        // Resumen / estado
+        async function cargarResumen() {
+            const estadoEl = $id('estado');
+            const desgEl = $id('desglose');
+            if (!ALUMNO_ID || !CICLO) {
+                estadoEl.textContent = 'Falta alumno o ciclo.';
+                desgEl.innerHTML = '';
+                return;
+            }
+            try {
+                const r = await fetch(`/api/pagos/summary?alumno_id=${encodeURIComponent(ALUMNO_ID)}&ciclo=${encodeURIComponent(CICLO)}`);
+                const j = await r.json();
+                if (!r.ok) throw new Error(j.error || 'Error');
+
+                const isPendiente = (j.estatus || '').toLowerCase() === 'pendiente';
+                const badgeClass = isPendiente ? 'badge-danger' : 'badge-success';
+                const adeudoClass = isPendiente ? 'adeudo-danger' : 'adeudo-success';
+
+                let adelantoHtml = '';
+                if (j.adelanto && j.adelanto.monto > 0) {
+                    adelantoHtml = ` · <span class="chip chip-adelanto">Adelantado: ${fmt(j.adelanto.monto)}${j.adelanto.periodos ? ` (${j.adelanto.periodos} ${j.adelanto.periodos === 1 ? 'periodo' : 'periodos'})` : ''}</span>`;
+                }
+
+                estadoEl.innerHTML = `
+          <div class="estado-linea ${isPendiente ? 'estado-pendiente' : 'estado-ok'}">
+            <span class="badge ${badgeClass}">${j.estatus}</span>
+            · <span class="${adeudoClass}">Adeudo: <b>${fmt(j.adeudo)}</b></span>
+            ${adelantoHtml}
+          </div>`;
+
+                periodos = j.detalle || [];
+                desgEl.innerHTML =
+                    '<tr><th>Periodo</th><th>Importe</th><th>Pagado</th><th>Saldo</th></tr>' +
+                    periodos.map(d => `
+            <tr>
+              <td>${d.periodo}</td>
+              <td>${fmt(d.importe)}</td>
+              <td>${fmt(d.pagado)}</td>
+              <td>${fmt(d.saldo)}</td>
+            </tr>`).join('');
+            } catch (e) {
+                console.error(e);
+                estadoEl.textContent = 'No se pudo obtener el estado.';
+                desgEl.innerHTML = '';
+            }
+        }
+
+        // Historial
+        async function cargarHistorial() {
+            const tbl = $id('hist');
+            if (!ALUMNO_ID || !CICLO) { tbl.innerHTML = ''; return; }
+            try {
+                const r = await fetch(`/api/pagos/historial?alumno_id=${encodeURIComponent(ALUMNO_ID)}&ciclo=${encodeURIComponent(CICLO)}`);
+                const rows = await r.json();
+                if (!r.ok) throw new Error(rows.error || 'Error');
+
+                tbl.innerHTML =
+                    '<tr><th>Fecha</th><th>Monto</th><th>Tipo</th><th>Método</th><th>Recibió</th></tr>' +
+                    (rows || []).map(p => `
+            <tr>
+              <td>${String(p.fecha_pago || '').slice(0, 10)}</td>
+              <td>${fmt(p.monto_total)}</td>
+              <td>${p.tipo_de_pago || ''}</td>
+              <td>${p.metodo_de_pago || ''}</td>
+              <td>${p.recibio || ''}</td>
+            </tr>`).join('');
+            } catch (e) {
+                console.error(e);
+                tbl.innerHTML = '<tr><td class="helper">No se pudo obtener el historial.</td></tr>';
+            }
+        }
+
+        // Guardar pago
+        async function guardarPago() {
+            const msg = $id('msg');
+            msg.textContent = '';
+
+            if (!ALUMNO_ID) { msg.textContent = 'Falta alumno.'; return; }
+            if (!CICLO) { msg.textContent = 'No se pudo determinar el ciclo actual.'; return; }
+
+            const fdObj = Object.fromEntries(new FormData($id('fpago')).entries());
+            if (!fdObj.fecha_pago || !fdObj.monto_total) { msg.textContent = 'Completa fecha y monto.'; return; }
+
+            const fecha_str = String(fdObj.fecha_pago).slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha_str)) { msg.textContent = 'Fecha inválida.'; return; }
+
+            if (hidRec && !hidRec.value) {
+                const ls = localStorage.getItem('username');
+                const k = (ls || 'Christian').toLowerCase();
+                hidRec.value = mapUserToDisplay[k] || (k.charAt(0).toUpperCase() + k.slice(1));
+            }
+
+            const payload = {
+                alumno_id: ALUMNO_ID,
+                ciclo: CICLO,
+                fecha_pago: fecha_str,
+                monto_total: Number(fdObj.monto_total),
+                tipo_de_pago: fdObj.tipo_de_pago,
+                metodo_de_pago: fdObj.metodo_de_pago,
+                recibio: fdObj.recibio || null,
+                observaciones: fdObj.observaciones || null,
+                origen: 'UI'
+            };
+
+            const btn = $id('btnGuardar');
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Registrando…';
+
+            try {
+                const r = await fetch('/api/pagos/registrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(j.error || 'Error al guardar');
+
+                showToast('Pago registrado', 'success');
+                $id('fpago').reset();
+                await Promise.all([cargarResumen(), cargarHistorial()]);
+            } catch (e) {
+                console.error(e);
+                showToast(e.message || 'No se pudo registrar el pago', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', async () => {
+            $id('btnCancelar').addEventListener('click', () => history.back());
+            $id('btnGuardar').addEventListener('click', guardarPago);
+            initRecibio();
+
+            ALUMNO_ID = qs('id');
+            if (!ALUMNO_ID) { $id('estado').textContent = 'Falta id de alumno en la URL.'; return; }
+
+            await Promise.all([cargarAlumno(), cargarCiclo()]);
+            await Promise.all([cargarResumen(), cargarHistorial()]);
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,38 @@
+<!-- /partials/topbar2.html -->
+<div class="topbar">
+    <div class="wrap">
+        <!-- Botón hamburguesa (solo móvil) -->
+        <button class="hamburger" id="btnHamburger" aria-label="Abrir menú" aria-expanded="false"
+            aria-controls="mainMenu">
+            ☰
+        </button>
+
+        <!-- Branding -->
+        <div class="brand">
+            <img src="/img/logo-real.png" class="logo" alt="Logo" />
+            <b>REAL DE ESCUINAPA</b>
+        </div>
+
+        <!-- Menú -->
+        <nav class="menu" id="mainMenu">
+            <a data-active="inicio" class="nav-link" href="/inicio.html">Inicio</a>
+            <a data-active="finanzas" class="nav-link" href="/finanzas.html" data-role="ADMIN,SUBADMIN">Finanzas</a>
+            <a data-active="calificaciones" class="nav-link" href="#" data-role="ADMIN,SUBADMIN">Calificaciones</a>
+            <a data-active="matricula" class="nav-link" href="/matricula.html" data-role="ADMIN,SUBADMIN">Matrícula</a>
+            <a data-active="altas" class="nav-link" href="/altas.html" data-role="ADMIN,SUBADMIN">Altas</a>
+        </nav>
+
+        <!-- Usuario / Dropdown -->
+        <div class="userbox">
+            <div class="userdrop">
+                <button class="userlink" id="userDropdownBtn" aria-haspopup="true" aria-expanded="false">
+                    <span id="helloUser">Cargando usuario...</span>
+                    <span class="caret">▾</span>
+                </button>
+                <div class="usermenu" id="userDropdownMenu" role="menu" aria-labelledby="userDropdownBtn">
+                    <button id="logout" class="useritem" role="menuitem">Cerrar sesión</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

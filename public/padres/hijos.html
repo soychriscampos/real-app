@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>REAL · Mis hijos</title>
+    <meta name="robots" content="noindex,nofollow">
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+    <header
+        style="background:#fff;border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:20px;text-align:center;">
+        <img src="/img/logo-real.png" alt="REAL de Escuinapa" style="height:60px;">
+    </header>
+    <div class="container" style="max-width:720px; margin-top:8vh">
+        <div class="card">
+            <h2 style="margin:0 0 10px">Mis hijos</h2>
+            <p class="muted" id="hintHijos" style="margin:0 0 10px">
+                Selecciona un alumno para ver su perfil y estado de pagos.
+            </p>
+
+            <!-- Lista de hijos -->
+            <div id="listaHijos" class="results" style="display:none"></div>
+
+            <!-- Mensaje/errores -->
+            <div id="msgHijos" class="subtle" style="margin-top:8px"></div>
+
+            <!-- Acciones (por si en el futuro agregamos salir o volver) -->
+            <div class="actions right" style="margin-top:12px">
+                <a href="/padres/login.html" class="btn">Cerrar sesión</a>
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+    (function () {
+        const $ = (id) => document.getElementById(id);
+        const box = $('listaHijos');
+        const msg = $('msgHijos');
+        const hint = $('hintHijos');
+
+        async function getJson(url) {
+            const r = await fetch(url, { credentials: 'same-origin' });
+            const t = await r.text();
+            let j = {};
+            try { j = JSON.parse(t); } catch { j = {}; }
+            if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status + ' · ' + t));
+            return j;
+        }
+
+        function renderHijos(rows) {
+            if (!Array.isArray(rows)) rows = [];
+            if (rows.length === 0) {
+                box.style.display = 'none';
+                msg.textContent = 'No encontramos alumnos vinculados a tu cuenta. Por favor, contacta a administración.';
+                return;
+            }
+            if (rows.length === 1) {
+                const id = rows[0].id;
+                location.replace('/padres/perfil.html?id=' + encodeURIComponent(id));
+                return;
+            }
+
+            hint.style.display = '';
+            box.style.display = '';
+
+            // Render más eficiente
+            const frag = document.createDocumentFragment();
+            rows.forEach(r => {
+                const wrap = document.createElement('div');
+                wrap.className = 'result-item';
+                wrap.innerHTML = `
+          <div class="info">
+            <a class="name" href="/padres/perfil.html?id=${encodeURIComponent(r.id)}">${r.nombre_completo || 'Alumno'}</a>
+            <div class="meta">${(r.nivel || '')} ${(r.grado ?? '')}</div>
+          </div>
+          <div class="actions">
+            <a class="btn primary" href="/padres/perfil.html?id=${encodeURIComponent(r.id)}">Abrir perfil</a>
+          </div>`;
+                frag.appendChild(wrap);
+            });
+            box.innerHTML = '';
+            box.appendChild(frag);
+        }
+
+        async function init() {
+            msg.textContent = 'Cargando…';
+            box.style.display = 'none';
+            hint.style.display = 'none';
+
+            // Lanza ambas en paralelo para reducir tiempo total
+            const pMe = fetch('/api/me', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : Promise.reject(r));
+            const pHijos = fetch('/api/padres/hijos', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : Promise.reject(r));
+
+            let me = null, hijos = null;
+
+            try {
+                // Espera a /api/me pero NO bloquea la descarga de hijos (ya va en paralelo)
+                me = await pMe;
+                const role = (me?.user?.type || '').toUpperCase();
+                if (role !== 'PARENT') {
+                    msg.textContent = 'Esta vista es exclusiva para padres. Usa el buscador o el perfil del alumno desde la plataforma del staff.';
+                    return;
+                }
+            } catch (e) {
+                // Sin sesión -> login
+                location.replace('/padres/login.html');
+                return;
+            }
+
+            try {
+                hijos = await pHijos;
+                msg.textContent = '';
+                renderHijos(hijos);
+            } catch (e) {
+                console.error('[hijos] error:', e);
+                msg.textContent = 'No fue posible obtener la lista de alumnos.';
+                box.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            init().catch(err => {
+                console.error('[init] fatal:', err);
+                msg.textContent = 'Error inesperado inicializando la vista.';
+            });
+        });
+    })();
+</script>
+
+
+
+</html>
