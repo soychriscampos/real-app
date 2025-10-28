@@ -335,6 +335,28 @@
                 });
             });
         });
+
+        // Etiquetas responsivas por celda basadas en los <th>
+        function setResponsiveTableLabels() {
+            document.querySelectorAll('table.table').forEach(table => {
+                const headers = Array.from(table.querySelectorAll('thead th'))
+                    .map(th => th.textContent.trim());
+                table.querySelectorAll('tbody tr').forEach(tr => {
+                    Array.from(tr.children).forEach((td, i) => {
+                        td.setAttribute('data-th', headers[i] || '');
+                    });
+                });
+            });
+        }
+
+        // Llamar DESPUÉS de cargar datos:
+        (async function init() {
+            // ...tu init actual...
+            await toggleVolverForParent();
+
+            // ahora que ya se pintaron filas:
+            setResponsiveTableLabels();
+        })();
     </script>
 </body>
 
