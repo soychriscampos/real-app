@@ -941,27 +941,62 @@ form.row>.actions {
 
 
 
-/* Tablas responsivas: scroll horizontal en móvil */
-.table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+/* Evita que el contenido sobresalga de las tarjetas redondeadas */
+.card {
+    border-radius: var(--radius);
+    overflow: hidden;
+    /* o 'clip' si Safari 17+ */
+    background: var(--card);
 }
 
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    /* asegúrate de que no se “rompa” el layout */
-    min-width: 560px;
-    /* sube a 640px si te gusta más ancho */
+/* --- Tablas responsivas sin cambiar HTML --- */
+/* Opción A: scroll horizontal solo en móvil */
+@media (max-width: 820px) {
+    .card {
+        /* la tarjeta se vuelve el "wrap" */
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .card table {
+        min-width: 640px;
+        /* ajusta a 560/600/680 según te guste */
+        border-collapse: collapse;
+    }
+
+    .card th,
+    .card td {
+        white-space: nowrap;
+    }
 }
 
-.table th,
-.table td {
-    white-space: nowrap;
-    /* evita saltos raros en números/fechas */
+/* Opción B (alternativa o complementaria): quepa sin scroll
+   usando layout fijo + corte elegante de texto largo */
+@media (max-width: 480px) {
+    .card table {
+        table-layout: fixed;
+        /* distribuye ancho de columnas */
+        width: 100%;
+    }
+
+    .card th,
+    .card td {
+        white-space: normal;
+        /* permite saltos */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-break: break-word;
+    }
+
+    /* da más aire y baja un poco tipografía en tablas en pantallas chicas */
+    .card th,
+    .card td {
+        padding: 8px 10px;
+        font-size: 14px;
+    }
 }
 
-/* Evita que algo “crezca” más que la pantalla */
+/* Por si alguna imagen o tabla insistía en forzar ancho */
 img,
 table {
     max-width: 100%;
