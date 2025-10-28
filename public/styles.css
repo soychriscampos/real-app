@@ -941,49 +941,51 @@ form.row>.actions {
 
 
 
-/* MODO TARJETA PERFIL EN MÓVIL (no toca el HTML) */
+/* ===== Tablas responsivas con etiquetas por celda (<=680px) ===== */
 @media (max-width: 680px) {
-    table.table thead {
-        display: none;
+    table.table {
+        border-collapse: separate;
+        border-spacing: 0;
     }
 
-    table.table,
-    table.table tbody,
-    table.table tr,
-    table.table td {
+    .table thead {
+        position: absolute;
+        left: -9999px;
+        /* ocultar header pero accesible para screen readers */
+    }
+
+    .table tbody tr {
         display: block;
-        width: 100%;
-    }
-
-    table.table tr {
-        background: var(--card);
+        background: #fff;
         border: 1px solid var(--line);
-        border-radius: var(--radius);
-        padding: 8px 12px;
-        margin: 10px 0;
+        border-radius: 14px;
+        margin-bottom: 12px;
+        overflow: hidden;
     }
 
-    table.table td {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 6px 0;
-        white-space: normal;
-        /* que el texto salte si es largo */
+    .table tbody td {
+        display: grid;
+        grid-template-columns: 42% 58%;
+        /* etiqueta | valor */
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border: none;
+        border-bottom: 1px solid var(--line);
         word-break: break-word;
+        /* que no desborde */
+        font-size: 0.98rem;
+        /* un pelín menor para móvil */
     }
 
-    table.table td::before {
+    .table tbody tr td:last-child {
+        border-bottom: none;
+    }
+
+    .table tbody td::before {
         content: attr(data-th);
+        /* <— AQUI APARECE LA ETIQUETA */
         font-weight: 600;
         color: var(--muted);
-        padding-right: 12px;
-        flex: 0 0 auto;
-    }
-
-    /* compactar números un poco */
-    #tblDesglose td,
-    #tblHist td {
-        font-variant-numeric: tabular-nums;
     }
 }
