@@ -314,6 +314,17 @@
                 await toggleVolverForParent();
             })();
         })();
+
+        document.getElementById('btnLogout')?.addEventListener('click', async () => {
+            try {
+                await fetch('/api/padres?action=logout', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                });
+            } catch { }
+            location.replace('/padres/');
+        });
     </script>
 </body>
 
