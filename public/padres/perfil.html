@@ -116,7 +116,7 @@
                 ? fmtMXN(n)
                 : (Number(n || 0)).toLocaleString("es-MX", { style: "currency", currency: "MXN" }));
 
-            // === NUEVO: rol global para decisiones de UI ===
+            // === Rol global para decisiones de UI ===
             let ROLE = ""; // 'PARENT' | 'ADMIN' | 'SUBADMIN' | 'CAJA'
 
             async function getJson(url) {
@@ -128,7 +128,7 @@
                 return j;
             }
 
-            // === NUEVO: cargar rol una sola vez ===
+            // Cargar rol una sola vez
             async function cargarRol() {
                 try {
                     const me = await getJson("/api/me");
@@ -185,12 +185,12 @@
                                 ? c.email
                                 : `<span style="color:var(--muted)"><i>No se ha registrado email.</i></span>`;
                             return `
-              <tr>
-                <td>${c.nombre ?? ""}</td>
-                <td>${c.parentesco ?? c.relacion ?? ""}</td>
-                <td>${tel}</td>
-                <td>${email}</td>
-              </tr>`;
+            <tr>
+              <td>${c.nombre ?? ""}</td>
+              <td>${c.parentesco ?? c.relacion ?? ""}</td>
+              <td>${tel}</td>
+              <td>${email}</td>
+            </tr>`;
                         })
                         .join("");
 
@@ -201,9 +201,8 @@
                 }
             }
 
-            // === NUEVO: helper de fecha DD-MM-YY (view) ===
+            // Helper de fecha DD-MM-YY (view)
             function fmtFechaDMY2(iso) {
-                // espera 'YYYY-MM-DD' (o fecha ISO), devuelve 'DD-MM-YY'
                 if (!iso) return "";
                 const s = String(iso).slice(0, 10); // YYYY-MM-DD
                 const [y, m, d] = s.split("-");
@@ -215,13 +214,17 @@
                 const est = $("estado");
                 const tb = $("tblDesglose").querySelector("tbody");
                 try {
-                    const s = await getJson("/api/pagos/summary?alumno_id=" + encodeURIComponent(alumnoId) + "&ciclo=" + encodeURIComponent(ciclo));
+                    const s = await getJson(
+                        "/api/pagos/summary?alumno_id=" + encodeURIComponent(alumnoId) +
+                        "&ciclo=" + encodeURIComponent(ciclo)
+                    );
                     const estPend = (String(s.estatus || "").toLowerCase() === "pendiente");
                     est.innerHTML = `
-          <span class="${estPend ? "badge-danger" : "badge-success"}" 
-          style="display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid;margin-right:6px">
-          ${s.estatus || "—"}</span>
-          <span>Adeudo: <b>${fmt(s.adeudo || 0)}</b></span>`;
+        <span class="${estPend ? "badge-danger" : "badge-success"}"
+              style="display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid;margin-right:6px">
+          ${s.estatus || "—"}
+        </span>
+        <span>Adeudo: <b>${fmt(s.adeudo || 0)}</b></span>`;
 
                     const det = Array.isArray(s.detalle) ? s.detalle : [];
                     tb.innerHTML = det.length
@@ -234,7 +237,7 @@
             </tr>`).join("")
                         : '<tr><td class="muted" colspan="4">Sin periodos.</td></tr>';
 
-                    // === CAMBIO: solo PARENT ve bloqueo por adeudo; staff siempre ve "disponibles"
+                    // Solo PARENT ve bloqueo por adeudo; staff siempre ve "disponibles"
                     if (ROLE === "PARENT") {
                         $("califMsg").textContent =
                             Number(s.adeudo || 0) > 0
@@ -253,7 +256,10 @@
             async function cargarHistorial(alumnoId, ciclo) {
                 const tb = $("tblHist").querySelector("tbody");
                 try {
-                    const rows = await getJson("/api/pagos/historial?alumno_id=" + encodeURIComponent(alumnoId) + "&ciclo=" + encodeURIComponent(ciclo));
+                    const rows = await getJson(
+                        "/api/pagos/historial?alumno_id=" + encodeURIComponent(alumnoId) +
+                        "&ciclo=" + encodeURIComponent(ciclo)
+                    );
                     const arr = Array.isArray(rows) ? rows : [];
                     tb.innerHTML = arr.length
                         ? arr.map(p => `
@@ -294,6 +300,30 @@
                 }
             }
 
+            // ======= NUEVO: Etiquetas móviles para tablas (sin tocar HTML) ==========
+            function applyMobileLabels(tableId) {
+                const tbl = document.getElementById(tableId);
+                if (!tbl) return;
+
+                const heads = [...(tbl.querySelectorAll('thead th') || [])]
+                    .map(th => (th.textContent || '').trim());
+
+                tbl.querySelectorAll('tbody tr').forEach(tr => {
+                    [...tr.children].forEach((td, i) => {
+                        const label = heads[i] || '';
+                        if (label) td.setAttribute('data-label', label);
+                    });
+                });
+            }
+
+            function applyAllLabels() {
+                applyMobileLabels('tblContactos');
+                applyMobileLabels('tblDesglose');
+                applyMobileLabels('tblHist');
+            }
+            // =======================================================================
+
+            // Init
             (async function init() {
                 const alumnoId = qs("id");
                 if (!alumnoId) {
@@ -311,53 +341,27 @@
                     cargarSummaryYDesglose(alumnoId, ciclo),
                     cargarHistorial(alumnoId, ciclo),
                 ]);
+
+                // >>> Añadido: poner etiquetas en celdas después de pintar las tablas
+                applyAllLabels();
+
                 await toggleVolverForParent();
             })();
-        })();
 
-        document.getElementById('btnLogout')?.addEventListener('click', async () => {
-            try {
-                await fetch('/api/padres?action=logout', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    cache: 'no-store'
-                });
-            } catch { }
-            location.replace('/padres/');
-        });
-
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('table.table').forEach(table => {
-                const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
-                table.querySelectorAll('tbody tr').forEach(tr => {
-                    Array.from(tr.children).forEach((td, i) => td.setAttribute('data-th', headers[i] || ''));
-                });
-            });
-        });
-
-        // Etiquetas responsivas por celda basadas en los <th>
-        function setResponsiveTableLabels() {
-            document.querySelectorAll('table.table').forEach(table => {
-                const headers = Array.from(table.querySelectorAll('thead th'))
-                    .map(th => th.textContent.trim());
-                table.querySelectorAll('tbody tr').forEach(tr => {
-                    Array.from(tr.children).forEach((td, i) => {
-                        td.setAttribute('data-th', headers[i] || '');
+            // Logout (botón)
+            document.getElementById('btnLogout')?.addEventListener('click', async () => {
+                try {
+                    await fetch('/api/padres?action=logout', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        cache: 'no-store'
                     });
-                });
+                } catch { }
+                location.replace('/padres/');
             });
-        }
-
-        // Llamar DESPUÉS de cargar datos:
-        (async function init() {
-            // ...tu init actual...
-            await toggleVolverForParent();
-
-            // ahora que ya se pintaron filas:
-            setResponsiveTableLabels();
         })();
     </script>
+
 </body>
 
 </html>

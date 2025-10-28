@@ -941,100 +941,58 @@ form.row>.actions {
 
 
 
-/* ===== Tablas apiladas en móvil con etiquetas visibles ===== */
+/* ===== Tablas apiladas en móvil con etiqueta:valor ======================= */
 @media (max-width: 640px) {
 
-    /* Estilo base de tarjetas */
-    .table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .table thead {
+    /* Oculta encabezados en móvil */
+    #tblContactos thead,
+    #tblDesglose thead,
+    #tblHist thead {
         display: none;
     }
 
-    .table tr {
+    /* Cada fila se vuelve una tarjeta */
+    #tblContactos tbody tr,
+    #tblDesglose tbody tr,
+    #tblHist tbody tr {
         display: block;
         background: #fff;
         border: 1px solid var(--line);
         border-radius: 16px;
-        margin: 12px 0;
-        overflow: hidden;
+        padding: 10px 12px;
+        margin-bottom: 10px;
     }
 
-    .table td {
+    /* Cada celda = etiqueta + valor en dos columnas */
+    #tblContactos td,
+    #tblDesglose td,
+    #tblHist td {
         display: grid;
         grid-template-columns: 42% 58%;
-        /* etiqueta | valor */
-        gap: 10px;
-        padding: 12px 14px;
-        border-bottom: 1px solid var(--line);
+        align-items: center;
+        padding: 8px 0;
+        border: 0;
     }
 
-    .table tr td:last-child {
-        border-bottom: none;
-    }
-
-    .table td::before {
+    /* Etiqueta proveniente de data-label */
+    #tblContactos td::before,
+    #tblDesglose td::before,
+    #tblHist td::before {
         content: attr(data-label);
-        /* por si en algún momento lo usas */
         font-weight: 600;
         color: var(--muted);
+        padding-right: 8px;
     }
 
-    /* ---- Contactos (#tblContactos) ---- */
-    #tblContactos td:nth-child(1)::before {
-        content: "Nombre";
+    /* Quita rayas de filas internas cuando apilamos */
+    #tblContactos tr+tr,
+    #tblDesglose tr+tr,
+    #tblHist tr+tr {
+        border-top: 0;
     }
 
-    #tblContactos td:nth-child(2)::before {
-        content: "Parentesco";
-    }
-
-    #tblContactos td:nth-child(3)::before {
-        content: "WhatsApp";
-    }
-
-    #tblContactos td:nth-child(4)::before {
-        content: "Email";
-    }
-
-    /* ---- Desglose por periodo (#tblDesglose) ---- */
-    #tblDesglose td:nth-child(1)::before {
-        content: "Periodo";
-    }
-
-    #tblDesglose td:nth-child(2)::before {
-        content: "Importe";
-    }
-
-    #tblDesglose td:nth-child(3)::before {
-        content: "Pagado";
-    }
-
-    #tblDesglose td:nth-child(4)::before {
-        content: "Saldo";
-    }
-
-    /* ---- Historial de pagos (#tblHist) ---- */
-    #tblHist td:nth-child(1)::before {
-        content: "Fecha";
-    }
-
-    #tblHist td:nth-child(2)::before {
-        content: "Monto";
-    }
-
-    #tblHist td:nth-child(3)::before {
-        content: "Tipo";
-    }
-
-    #tblHist td:nth-child(4)::before {
-        content: "Método";
-    }
-
-    #tblHist td:nth-child(5)::before {
-        content: "Recibió";
+    /* Evita overflow horizontal en la página */
+    body {
+        overflow-x: hidden;
     }
 }
