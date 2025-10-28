@@ -325,6 +325,16 @@
             } catch { }
             location.replace('/padres/');
         });
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('table.table').forEach(table => {
+                const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+                table.querySelectorAll('tbody tr').forEach(tr => {
+                    Array.from(tr.children).forEach((td, i) => td.setAttribute('data-th', headers[i] || ''));
+                });
+            });
+        });
     </script>
 </body>
 
