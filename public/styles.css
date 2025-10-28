@@ -941,51 +941,100 @@ form.row>.actions {
 
 
 
-/* ===== Tablas responsivas con etiquetas por celda (<=680px) ===== */
-@media (max-width: 680px) {
-    table.table {
-        border-collapse: separate;
-        border-spacing: 0;
+/* ===== Tablas apiladas en móvil con etiquetas visibles ===== */
+@media (max-width: 640px) {
+
+    /* Estilo base de tarjetas */
+    .table {
+        width: 100%;
+        border-collapse: collapse;
     }
 
     .table thead {
-        position: absolute;
-        left: -9999px;
-        /* ocultar header pero accesible para screen readers */
+        display: none;
     }
 
-    .table tbody tr {
+    .table tr {
         display: block;
         background: #fff;
         border: 1px solid var(--line);
-        border-radius: 14px;
-        margin-bottom: 12px;
+        border-radius: 16px;
+        margin: 12px 0;
         overflow: hidden;
     }
 
-    .table tbody td {
+    .table td {
         display: grid;
         grid-template-columns: 42% 58%;
         /* etiqueta | valor */
-        align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        border: none;
+        gap: 10px;
+        padding: 12px 14px;
         border-bottom: 1px solid var(--line);
-        word-break: break-word;
-        /* que no desborde */
-        font-size: 0.98rem;
-        /* un pelín menor para móvil */
     }
 
-    .table tbody tr td:last-child {
+    .table tr td:last-child {
         border-bottom: none;
     }
 
-    .table tbody td::before {
-        content: attr(data-th);
-        /* <— AQUI APARECE LA ETIQUETA */
+    .table td::before {
+        content: attr(data-label);
+        /* por si en algún momento lo usas */
         font-weight: 600;
         color: var(--muted);
+    }
+
+    /* ---- Contactos (#tblContactos) ---- */
+    #tblContactos td:nth-child(1)::before {
+        content: "Nombre";
+    }
+
+    #tblContactos td:nth-child(2)::before {
+        content: "Parentesco";
+    }
+
+    #tblContactos td:nth-child(3)::before {
+        content: "WhatsApp";
+    }
+
+    #tblContactos td:nth-child(4)::before {
+        content: "Email";
+    }
+
+    /* ---- Desglose por periodo (#tblDesglose) ---- */
+    #tblDesglose td:nth-child(1)::before {
+        content: "Periodo";
+    }
+
+    #tblDesglose td:nth-child(2)::before {
+        content: "Importe";
+    }
+
+    #tblDesglose td:nth-child(3)::before {
+        content: "Pagado";
+    }
+
+    #tblDesglose td:nth-child(4)::before {
+        content: "Saldo";
+    }
+
+    /* ---- Historial de pagos (#tblHist) ---- */
+    #tblHist td:nth-child(1)::before {
+        content: "Fecha";
+    }
+
+    #tblHist td:nth-child(2)::before {
+        content: "Monto";
+    }
+
+    #tblHist td:nth-child(3)::before {
+        content: "Tipo";
+    }
+
+    #tblHist td:nth-child(4)::before {
+        content: "Método";
+    }
+
+    #tblHist td:nth-child(5)::before {
+        content: "Recibió";
     }
 }
