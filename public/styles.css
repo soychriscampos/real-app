@@ -936,3 +936,33 @@ form.row>.actions {
 .list-row:last-child {
     border-bottom: 0;
 }
+
+
+
+
+
+/* Tablas responsivas: scroll horizontal en móvil */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    /* asegúrate de que no se “rompa” el layout */
+    min-width: 560px;
+    /* sube a 640px si te gusta más ancho */
+}
+
+.table th,
+.table td {
+    white-space: nowrap;
+    /* evita saltos raros en números/fechas */
+}
+
+/* Evita que algo “crezca” más que la pantalla */
+img,
+table {
+    max-width: 100%;
+}
