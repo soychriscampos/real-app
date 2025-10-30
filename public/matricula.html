@@ -270,9 +270,7 @@
             body.innerHTML = rows.map(a => `
       <tr>
         <td>
-          <a class="name" href="/padres/perfil.html?id=${encodeURIComponent(a.id)}">
             ${h(a.nombre_completo || 'Alumno')}
-          </a>
         </td>
         <td>${h(a.nivel || '')}</td>
         <td>${h(a.grado ?? '')}</td>
