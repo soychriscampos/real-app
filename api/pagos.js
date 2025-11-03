@@ -349,8 +349,32 @@ async function h_summary(req, res) {
             inscripcion_pagado = +((pagosIns || []).reduce((s, p) => s + Number(p.monto_total || 0), 0)).toFixed(2);
         }
 
+        // === NUEVO: determinar "inicio_cobro" desde vigencia_desde (solo COLEGIATURA)
+        let inicio_cobro = fecha_inicio_ciclo; // fallback = inicio del ciclo
+        const vigs = (precios || [])
+            .filter(r => String(r.concepto || '').toUpperCase() === 'COLEGIATURA')
+            .map(r => String(r.vigencia_desde || '').slice(0, 10))
+            .filter(Boolean)
+            .sort(); // ASC
+        const cand = vigs.find(v => v >= fecha_inicio_ciclo);
+        if (cand) inicio_cobro = cand;
+        // normalizar a primer día del mes
+        inicio_cobro = inicio_cobro.slice(0, 7) + '-01';
+
+        // === NUEVO: calendario filtrado
+        // - Mantiene SIEMPRE INSCRIPCION (si existe en calendario)
+        // - Filtra COLEGIATURA a partir de inicio_cobro
+        const calFiltrado = (cal || []).filter(p => {
+            const tipoUp = String(p.tipo || '').toUpperCase();
+            const fv = String(p.fecha_vencimiento || '').slice(0, 10);
+            if (!fv) return false;
+            if (tipoUp === 'INSCRIPCION') return true; // no se corta
+            if (tipoUp === 'COLEGIATURA') return fv >= inicio_cobro;
+            return true; // otros tipos (si los hubiera), déjalos pasar
+        });
+
         // Armar detalle por calendario (incluye INS)
-        const detalle = (cal || []).map(p => {
+        const detalle = (calFiltrado || []).map(p => {
             const periodoUp = (p.periodo || '').toUpperCase();
             const tipoUp = (p.tipo || '').toUpperCase();
             const mult = Number(p.multiplicador || 1);
@@ -389,10 +413,10 @@ async function h_summary(req, res) {
         const estatus = adeudo > 0 ? 'Pendiente' : 'Al corriente';
         const detalleHastaHoy = detalle.filter(d => d.fecha_vencimiento && d.fecha_vencimiento <= hoy);
 
-        // Adelantos (solo colegiatura a futuro)
+        // Adelantos (solo colegiatura a futuro) usando calendario filtrado
         let adelanto_monto = 0;
         let adelanto_periodos = 0;
-        for (const p of (cal || [])) {
+        for (const p of (calFiltrado || [])) {
             if (!p.fecha_vencimiento || p.fecha_vencimiento <= hoy) continue;
             const tipoUp = (p.tipo || '').toUpperCase();
             if (tipoUp !== 'COLEGIATURA') continue;
@@ -413,6 +437,7 @@ async function h_summary(req, res) {
         return res.status(500).json({ error: 'No se pudo calcular el resumen' });
     }
 }
+
 
 // ===== Router =====
 export default async function handler(req, res) {
