@@ -18,6 +18,20 @@ function getAction(req) {
     return (url.searchParams.get('action') || '').toLowerCase();
 }
 
+// ==== NUEVO: inicio de cobro por alumno (YYYY-MM-01) basado en vigencia_desde de COLEGIATURA ====
+function inicioCobroAlumno(alumnoId, cicloStart /* 'YYYY-MM-DD' */, byAlumno) {
+    const listaCol = (byAlumno[alumnoId]?.['COLEGIATURA']) || [];
+    const vs = listaCol
+        .map(x => String(x.vigencia_desde || '').slice(0, 10))
+        .filter(Boolean)
+        .sort(); // ASC
+
+    // Si hay una vigencia dentro o después del inicio del ciclo, usa la más temprana de esas;
+    // si no, usa la más temprana en general; si no hay, cae al inicio del ciclo.
+    const cand = vs.find(v => v >= cicloStart) || vs[0] || cicloStart;
+    return (cand || cicloStart).slice(0, 7) + '-01';
+}
+
 // ==== /api/finanzas?action=deudores ====
 async function h_deudores(req, res) {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Método no permitido' });
@@ -28,9 +42,13 @@ async function h_deudores(req, res) {
     try {
         // ciclo y calendario
         const { data: cicloRow } = await supaAdmin
-            .from('ciclos').select('id').eq('ciclo', cicloStr).single();
+            .from('ciclos')
+            .select('id, fecha_inicio')
+            .eq('ciclo', cicloStr)
+            .single();
         if (!cicloRow) return res.status(400).json({ error: 'Ciclo no válido' });
         const ciclo_id = cicloRow.id;
+        const cicloStart = cicloRow.fecha_inicio;
 
         const { data: cal } = await supaAdmin
             .from('calendario_ciclo')
@@ -60,6 +78,7 @@ async function h_deudores(req, res) {
             (byAlumno[r.alumno_id] ||= { COLEGIATURA: [], INSCRIPCION: [] })[c].push(r);
         });
 
+        // Precio vigente "a hoy" (mantenemos tu lógica actual)
         const importeVigente = (al, concepto, hoyStr) => {
             const lista = (byAlumno[al.id]?.[concepto]) || [];
             if (!lista.length) return 0;
@@ -98,6 +117,15 @@ async function h_deudores(req, res) {
             const col = importeVigente(a, 'COLEGIATURA', hoy);
             const ins = importeVigente(a, 'INSCRIPCION', hoy);
 
+            // === NUEVO: filtrar vencidos por inicio de cobro del alumno
+            const inicio = inicioCobroAlumno(a.id, cicloStart, byAlumno);
+            const vencidosFiltrados = (vencidos || []).filter(p => {
+                const t = tipoDePeriodo(p);
+                if (t === 'INSCRIPCION') return true; // INS no se corta
+                const fv = String(p.fecha_vencimiento || '').slice(0, 10);
+                return fv && fv >= inicio; // COLEGIATURA solo desde su inicio real
+            });
+
             let deuda = 0;
             const conceptos = [];
 
@@ -108,8 +136,8 @@ async function h_deudores(req, res) {
                 if (saldo > 0) { deuda += saldo; conceptos.push('INS'); }
             }
 
-            // Colegiaturas por periodo vencido
-            for (const p of (vencidos || [])) {
+            // Colegiaturas por periodo vencido (ya filtrados)
+            for (const p of (vencidosFiltrados || [])) {
                 if (tipoDePeriodo(p) !== 'COLEGIATURA') continue;
                 const esperado = col * Number(p.multiplicador || 1);
                 const abono = Number(pagadoCol.get(a.id + '|' + p.periodo) || 0);
@@ -153,9 +181,13 @@ async function h_overview(req, res) {
     try {
         // ciclo + calendario
         const { data: cicloRow, error: eC } = await supaAdmin
-            .from('ciclos').select('id').eq('ciclo', cicloStr).single();
+            .from('ciclos')
+            .select('id, fecha_inicio')
+            .eq('ciclo', cicloStr)
+            .single();
         if (eC || !cicloRow) return res.status(400).json({ error: 'Ciclo no válido' });
         const ciclo_id = cicloRow.id;
+        const cicloStart = cicloRow.fecha_inicio;
 
         const { data: cal, error: eCal } = await supaAdmin
             .from('calendario_ciclo')
@@ -187,6 +219,7 @@ async function h_overview(req, res) {
             (byAlumno[r.alumno_id] ||= { COLEGIATURA: [], INSCRIPCION: [] })[c].push(r);
         });
 
+        // precio vigente "a hoy"
         const importeVigente = (al, concepto, hoyStr) => {
             const lista = (byAlumno[al.id]?.[concepto]) || [];
             if (!lista.length) return 0;
@@ -233,6 +266,15 @@ async function h_overview(req, res) {
             const importeCol = importeVigente(al, 'COLEGIATURA', hoy);
             const importeIns = importeVigente(al, 'INSCRIPCION', hoy);
 
+            // === NUEVO: filtrar vencidos por inicio de cobro del alumno
+            const inicio = inicioCobroAlumno(al.id, cicloStart, byAlumno);
+            const vencidosFiltrados = (vencidos || []).filter(p => {
+                const t = tipoDePeriodo(p);
+                if (t === 'INSCRIPCION') return true; // INS no se corta
+                const fv = String(p.fecha_vencimiento || '').slice(0, 10);
+                return fv && fv >= inicio; // COLEGIATURA solo desde su inicio real
+            });
+
             // a) inscripción
             if (tieneINSvencido && importeIns > 0) {
                 const pagadoIns = Number(pagadoInscripcion.get(al.id) || 0);
@@ -246,10 +288,10 @@ async function h_overview(req, res) {
             }
 
             // b) colegiaturas
-            for (const p of (vencidos || [])) {
+            for (const p of (vencidosFiltrados || [])) {
                 if (tipoDePeriodo(p) !== 'COLEGIATURA') continue;
                 const mult = Number(p.multiplicador || 1);
-                const esperado = importeCol * mult;
+                const esperado = importeCol * mult; // (Opcional: puedes usar precio por fecha del periodo)
                 const key = al.id + '|' + p.periodo;
                 const pagado = Number(pagadoPeriodo.get(key) || 0);
                 const saldo = Math.max(0, +(esperado - pagado).toFixed(2));
