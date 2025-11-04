@@ -405,15 +405,27 @@ async function h_summary(req, res) {
             };
         });
 
+        // Adeudo solo con lo vencido
         const adeudo = +(detalle
             .filter(d => d.fecha_vencimiento && d.fecha_vencimiento <= hoy)
             .reduce((s, d) => s + (d.saldo || 0), 0)
         ).toFixed(2);
-
         const estatus = adeudo > 0 ? 'Pendiente' : 'Al corriente';
-        const detalleHastaHoy = detalle.filter(d => d.fecha_vencimiento && d.fecha_vencimiento <= hoy);
 
-        // Adelantos (solo colegiatura a futuro) usando calendario filtrado
+        // === NUEVO: “Desglose del Periodo” visible
+        //  - Vencidos (<= hoy)
+        //  - Mes actual (aunque no esté vencido)
+        //  - Futuros con pago aplicado (pagado > 0)
+        const yyyymm = s => (s ? s.slice(0, 7) : null);
+        const detalleVisible = detalle
+            .filter(d => {
+                if (!d.fecha_vencimiento) return false;
+                const fv = d.fecha_vencimiento;
+                return (fv <= hoy) || (yyyymm(fv) === yyyymm(hoy)) || (d.pagado > 0);
+            })
+            .sort((a, b) => String(a.fecha_vencimiento).localeCompare(String(b.fecha_vencimiento)));
+
+        // Adelantos (solo colegiatura a futuro) usando el calendario ya filtrado
         let adelanto_monto = 0;
         let adelanto_periodos = 0;
         for (const p of (calFiltrado || [])) {
@@ -431,7 +443,8 @@ async function h_summary(req, res) {
         }
         const adelanto = { monto: +adelanto_monto.toFixed(2), periodos: adelanto_periodos };
 
-        return res.status(200).json({ estatus, adeudo, detalle: detalleHastaHoy, adelanto });
+        return res.status(200).json({ estatus, adeudo, detalle: detalleVisible, adelanto });
+
     } catch (e) {
         console.error('[pagos/summary] Error:', e);
         return res.status(500).json({ error: 'No se pudo calcular el resumen' });
