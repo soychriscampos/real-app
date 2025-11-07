@@ -473,7 +473,7 @@ async function h_ingresos(req, res) {
             ciclo: cicloStr,
             fecha_inicio: fechaInicio,
             total_general: +totalMonto.toFixed(2),
-            total_pagos,
+            total_pagos: totalPagos,
             resumen_recibio: listFromMap(recTotals, recibioLabels),
             resumen_metodo: listFromMap(metodoTotals, metodoLabels),
             por_dia,
