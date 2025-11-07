@@ -48,6 +48,33 @@ function monthLabel(ym) {
     return monthFmt.format(date);
 }
 
+const tipoLabels = {
+    COLEGIATURA: 'Colegiatura',
+    INSCRIPCION: 'Inscripción'
+};
+
+function humanTipo(key) {
+    return tipoLabels[key] || key || '—';
+}
+
+function ymCompare(a, b) {
+    return a.localeCompare(b);
+}
+
+function monthsBetween(startYm, endYm) {
+    const out = [];
+    if (!startYm || !endYm) return out;
+    const startDate = new Date(startYm + '-01T00:00:00');
+    const endDate = new Date(endYm + '-01T00:00:00');
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return out;
+    const cursor = new Date(startDate);
+    while (cursor <= endDate) {
+        out.push(cursor.toISOString().slice(0, 7));
+        cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return out;
+}
+
 // ==== NUEVO: inicio de cobro por alumno (YYYY-MM-01) basado en vigencia_desde de COLEGIATURA ====
 function inicioCobroAlumno(alumnoId, cicloStart /* 'YYYY-MM-DD' */, byAlumno) {
     const listaCol = (byAlumno[alumnoId]?.['COLEGIATURA']) || [];
@@ -394,28 +421,60 @@ async function h_ingresos(req, res) {
         const monthTotals = new Map();
         const recibioLabels = new Map(Object.entries(RECEIVER_LABELS));
         const metodoLabels = new Map([['SIN_METODO', 'Sin método']]);
+        const preInicioByRec = new Map();
 
         let totalMonto = 0;
         let totalPagos = 0;
+        let preInicioTotal = 0;
+        let preInicioColegiaturas = 0;
+
+        const ensurePreRec = (rec) => {
+            if (!preInicioByRec.has(rec.key)) {
+                preInicioByRec.set(rec.key, {
+                    key: rec.key,
+                    label: rec.label,
+                    total: 0,
+                    tipos: new Map()
+                });
+            }
+            return preInicioByRec.get(rec.key);
+        };
 
         for (const pago of (pagos || [])) {
             const tipo = norm(pago.tipo_de_pago || '');
-            if (tipo && tipo !== 'COLEGIATURA') continue;
+            let tipoKey = null;
+            if (!tipo) tipoKey = 'COLEGIATURA';
+            else if (tipo === 'INSCRIPCION') tipoKey = 'INSCRIPCION';
+            else if (tipo === 'COLEGIATURA') tipoKey = 'COLEGIATURA';
 
             const fecha = String(pago.fecha_pago || '').slice(0, 10);
             if (!fecha) continue;
-            if (fechaInicio && fecha < fechaInicio) continue;
 
             const monto = Number(pago.monto_total || 0);
             if (!(monto > 0)) continue;
-
-            totalMonto += monto;
-            totalPagos += 1;
 
             const rec = classifyRecibio(pago.recibio);
             const met = classifyMetodo(pago.metodo_de_pago);
             recibioLabels.set(rec.key, rec.label);
             metodoLabels.set(met.key, met.label);
+
+            if (fechaInicio && fecha < fechaInicio) {
+                if (!tipoKey) continue;
+                const info = ensurePreRec(rec);
+                info.total += monto;
+                info.tipos.set(tipoKey, (info.tipos.get(tipoKey) || 0) + monto);
+                preInicioTotal += monto;
+                if (tipoKey === 'COLEGIATURA') {
+                    preInicioColegiaturas += monto;
+                }
+                continue;
+            }
+
+            if (tipoKey && tipoKey !== 'COLEGIATURA') continue;
+            if (!tipoKey) continue;
+
+            totalMonto += monto;
+            totalPagos += 1;
 
             recTotals.set(rec.key, (recTotals.get(rec.key) || 0) + monto);
             metodoTotals.set(met.key, (metodoTotals.get(met.key) || 0) + monto);
@@ -461,13 +520,52 @@ async function h_ingresos(req, res) {
                     .sort((a, b) => b.monto - a.monto)
             }));
 
-        const por_mes = Array.from(monthTotals.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]))
+        let por_mes = Array.from(monthTotals.entries())
+            .sort((a, b) => ymCompare(a[0], b[0]))
             .map(([key, val]) => ({
                 mes: key,
                 label: monthLabel(key),
                 total: +val.toFixed(2)
             }));
+
+        if (fechaInicio) {
+            const startYm = fechaInicio.slice(0, 7);
+            const dataMonths = Array.from(monthTotals.keys()).sort(ymCompare);
+            const latestData = dataMonths[dataMonths.length - 1] || startYm;
+            const todayYm = new Date().toISOString().slice(0, 7);
+            const endYm = [latestData, todayYm].filter(Boolean).sort(ymCompare).pop();
+            const monthSeq = monthsBetween(startYm, endYm);
+            const seqSeries = monthSeq.map(key => ({
+                mes: key,
+                label: monthLabel(key),
+                total: +Number(monthTotals.get(key) || 0).toFixed(2)
+            }));
+            por_mes = [{
+                mes: 'PREVIO',
+                label: 'Antes inicio',
+                total: +preInicioColegiaturas.toFixed(2)
+            }, ...seqSeries];
+        }
+
+        const ordenRec = (key) => key === 'CHRISTIAN' ? 0 : key === 'FRAN' ? 1 : 2;
+        const pre_ciclo = {
+            fecha_limite: fechaInicio,
+            total: +preInicioTotal.toFixed(2),
+            por_recibio: Array.from(preInicioByRec.values())
+                .sort((a, b) => ordenRec(a.key) - ordenRec(b.key) || a.label.localeCompare(b.label, 'es'))
+                .map(item => ({
+                    key: item.key,
+                    label: item.label,
+                    total: +item.total.toFixed(2),
+                    tipos: Array.from(item.tipos.entries())
+                        .map(([tipoKey, monto]) => ({
+                            key: tipoKey,
+                            label: humanTipo(tipoKey),
+                            monto: +monto.toFixed(2)
+                        }))
+                        .sort((a, b) => (a.key === 'COLEGIATURA' ? 0 : 1) - (b.key === 'COLEGIATURA' ? 0 : 1))
+                }))
+        };
 
         return res.status(200).json({
             ciclo: cicloStr,
@@ -477,7 +575,8 @@ async function h_ingresos(req, res) {
             resumen_recibio: listFromMap(recTotals, recibioLabels),
             resumen_metodo: listFromMap(metodoTotals, metodoLabels),
             por_dia,
-            por_mes
+            por_mes,
+            pre_ciclo
         });
     } catch (e) {
         console.error('[finanzas/ingresos] Error:', e);

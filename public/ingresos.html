@@ -41,6 +41,21 @@
             </div>
         </div>
 
+        <div class="card mt-12" id="preCicloCard">
+            <div class="row-2" style="align-items:flex-start">
+                <div>
+                    <h3 style="margin:0">Ingresos previos al ciclo</h3>
+                    <p class="helper" style="margin-top:4px">Colegiaturas e inscripciones antes del inicio del ciclo</p>
+                    <div class="subtle" id="preFecha">—</div>
+                </div>
+                <div class="kpi-ingresos" role="status">
+                    <div class="muted">Total antes del ciclo</div>
+                    <div class="kpi-value" id="preTotal">$0.00</div>
+                </div>
+            </div>
+            <div id="preGrid" class="pre-grid mt-12"></div>
+        </div>
+
         <div class="card mt-12">
             <div class="row-2" style="align-items:center">
                 <h3 style="margin:0">Ingresos por día</h3>
@@ -111,6 +126,48 @@
             `).join('');
         }
 
+        function renderStack(list) {
+            if (!list.length) return '<div class="helper">Sin registros.</div>';
+            return list.map(item => `
+                <div class="stack-row">
+                    <span>${item.label}</span>
+                    <strong>${fmt(item.monto)}</strong>
+                </div>
+            `).join('');
+        }
+
+        function renderPreCiclo(block) {
+            const card = $id('preCicloCard');
+            const grid = $id('preGrid');
+            if (!card || !grid) return;
+            if (!block || !(Array.isArray(block.por_recibio) && block.por_recibio.length)) {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = '';
+            $id('preTotal').textContent = fmt(block.total || 0);
+            $id('preFecha').textContent = block.fecha_limite ? `Antes del ${formatLong(block.fecha_limite)}` : '';
+            grid.innerHTML = block.por_recibio.map(item => `
+                <div class="pre-card">
+                    <div class="pre-card-header">
+                        <div>
+                            <div class="muted">Recibió</div>
+                            <h4>${item.label}</h4>
+                        </div>
+                        <div class="pre-total">${fmt(item.total)}</div>
+                    </div>
+                    <div class="pre-card-body">
+                        ${(item.tipos && item.tipos.length ? item.tipos.map(t => `
+                            <div class="stack-row">
+                                <span>${t.label}</span>
+                                <strong>${fmt(t.monto)}</strong>
+                            </div>
+                        `).join('') : '<div class="helper">Sin desglose.</div>')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
         function renderDiario(rows) {
             const wrap = $id('diarioList');
             if (!wrap) return;
@@ -121,25 +178,25 @@
             wrap.innerHTML = rows.map(d => {
                 const recList = Array.isArray(d.recibio) ? d.recibio : [];
                 const metList = Array.isArray(d.metodos) ? d.metodos : [];
-                const rec = recList.map(r => `<span class="chip"><span>${r.label}</span><b>${fmt(r.monto)}</b></span>`).join('') || '<span class="helper">—</span>';
-                const met = metList.map(r => `<span class="chip"><span>${r.label}</span><b>${fmt(r.monto)}</b></span>`).join('') || '<span class="helper">—</span>';
+                const rec = renderStack(recList);
+                const met = renderStack(metList);
                 return `
                 <div class="daily-row">
-                    <div class="daily-head">
-                        <div>
+                    <div class="daily-header">
+                        <div class="daily-date-block">
                             <div class="daily-date">${formatDay(d.fecha)}</div>
                             <div class="subtle">${d.pagos} pago(s)</div>
                         </div>
-                        <div class="daily-total">${fmt(d.total)}</div>
+                        <div class="daily-total-badge">${fmt(d.total)}</div>
                     </div>
                     <div class="daily-break">
-                        <div>
+                        <div class="daily-section">
                             <div class="muted">Recibió</div>
-                            <div class="chip-line">${rec}</div>
+                            <div class="stack-list">${rec}</div>
                         </div>
-                        <div>
+                        <div class="daily-section">
                             <div class="muted">Método</div>
-                            <div class="chip-line">${met}</div>
+                            <div class="stack-list">${met}</div>
                         </div>
                     </div>
                 </div>`;
@@ -156,17 +213,36 @@
                 return;
             }
             const max = Math.max(...rows.map(r => r.total), 1);
-            if (note) note.textContent = `Mayor ingreso mensual: ${fmt(max)}`;
-            wrap.innerHTML = rows.map(r => {
-                const height = Math.max(4, Math.round((r.total / max) * 180));
-                return `
-                <div class="bar">
-                    <div class="bar-value" style="height:${height}px">
-                        <span>${fmt(r.total)}</span>
+            const axisMax = Math.max(max, 1);
+            const divisions = 4;
+            const axisValues = [];
+            for (let i = divisions; i >= 0; i--) {
+                axisValues.push((axisMax / divisions) * i);
+            }
+            if (note) note.textContent = `Datos hasta ${rows[rows.length - 1]?.label || ''}`;
+
+            wrap.innerHTML = `
+                <div class="chart-shell">
+                    <div class="chart-axis">
+                        ${axisValues.map(v => `<span>${fmt(v)}</span>`).join('')}
                     </div>
-                    <div class="bar-label">${r.label}</div>
-                </div>`;
-            }).join('');
+                    <div class="chart-area">
+                        ${axisValues.slice(0, -1).map((_, idx) => `<div class="chart-grid-line" style="top:${(idx / (divisions)) * 100}%"></div>`).join('')}
+                        <div class="chart-bars">
+                            ${rows.map(r => {
+                const pct = Math.max(0.02, r.total / axisMax);
+                return `
+                                    <div class="chart-bar">
+                                        <div class="bar-amount">${fmt(r.total)}</div>
+                                        <div class="bar-value" style="height:${pct * 100}%"></div>
+                                        <div class="bar-label">${r.label}</div>
+                                    </div>
+                                `;
+            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         async function ensureAdmin() {
@@ -206,6 +282,7 @@
                 $id('rangoInfo').textContent = '';
             }
 
+            renderPreCiclo(data.pre_ciclo || null);
             renderPills($id('resumenRecibio'), data.resumen_recibio || []);
             renderPills($id('resumenMetodos'), data.resumen_metodo || []);
             renderDiario(data.por_dia || []);

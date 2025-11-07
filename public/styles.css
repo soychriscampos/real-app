@@ -69,6 +69,12 @@ h3 {
     color: var(--muted)
 }
 
+.helper {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 4px 0;
+}
+
 .subtle {
     color: var(--muted);
     font-size: 12px
@@ -355,6 +361,69 @@ textarea:focus {
     color: var(--brand);
 }
 
+.pre-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.pre-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pre-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pre-card-header h4 {
+    margin: 4px 0 0;
+    font-size: 18px;
+}
+
+.pre-total {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--brand);
+}
+
+.pre-card-body {
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+}
+
+.stack-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.stack-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 14px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #e5e7eb;
+}
+
+.stack-row:last-child {
+    border-bottom: none;
+}
+
+.stack-row strong {
+    font-weight: 700;
+    color: var(--text);
+}
+
 .daily-list {
     display: flex;
     flex-direction: column;
@@ -368,11 +437,16 @@ textarea:focus {
     background: #fff;
 }
 
-.daily-head {
+.daily-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+}
+
+.daily-date-block {
+    display: flex;
+    flex-direction: column;
 }
 
 .daily-date {
@@ -381,10 +455,13 @@ textarea:focus {
     text-transform: capitalize;
 }
 
-.daily-total {
-    font-size: 22px;
+.daily-total-badge {
     font-weight: 700;
     color: var(--brand);
+    font-size: 18px;
+    background: var(--brand-soft);
+    padding: 6px 14px;
+    border-radius: 999px;
 }
 
 .daily-break {
@@ -392,6 +469,13 @@ textarea:focus {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     margin-top: 12px;
+}
+
+.daily-section {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    background: #f9fafb;
 }
 
 .chip-line {
@@ -422,44 +506,74 @@ textarea:focus {
 }
 
 .bar-chart {
-    display: flex;
-    align-items: flex-end;
-    gap: 18px;
     overflow-x: auto;
-    padding-bottom: 6px;
 }
 
-.bar {
-    flex: 0 0 60px;
+.chart-shell {
+    display: flex;
+    gap: 12px;
+}
+
+.chart-axis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 80px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.chart-area {
+    position: relative;
+    flex: 1;
+    min-height: 260px;
+    border-left: 1px solid var(--line);
+    padding: 0 12px 28px;
+}
+
+.chart-grid-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed #d1d5db;
+}
+
+.chart-bars {
+    position: absolute;
+    bottom: 0;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+}
+
+.chart-bar {
+    flex: 0 0 70px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
 }
 
-.bar-value {
-    width: 100%;
-    border-radius: 8px 8px 0 0;
-    background: var(--brand-soft);
-    border: 1px solid var(--focus-border);
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding: 4px;
-    min-height: 4px;
+.bar-amount {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
 }
 
-.bar-value span {
-    font-size: 12px;
-    color: var(--brand);
-    font-weight: 600;
+.bar-value {
+    width: 100%;
+    border-radius: 10px 10px 4px 4px;
+    background: linear-gradient(180deg, var(--brand), var(--brand-hover));
+    min-height: 6px;
 }
 
 .bar-label {
     font-size: 12px;
     color: var(--muted);
-    text-align: center;
     text-transform: capitalize;
+    text-align: center;
 }
 
 .table {
