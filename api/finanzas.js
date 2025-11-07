@@ -1,5 +1,6 @@
 // api/finanzas.js
 import supaAdmin from '../lib/supaAdmin.js';
+import { getSession } from '../lib/session.js';
 
 // ==== helpers comunes ====
 const norm = (s = '') =>
@@ -16,6 +17,35 @@ const tipoDePeriodo = (p) => {
 function getAction(req) {
     const url = new URL(req.url, 'http://localhost');
     return (url.searchParams.get('action') || '').toLowerCase();
+}
+
+const RECEIVER_LABELS = {
+    CHRISTIAN: 'Christian',
+    FRAN: 'Fran'
+};
+
+function classifyRecibio(nombre) {
+    const raw = (nombre || '').trim();
+    const normalized = norm(raw);
+    if (normalized.includes('CHRISTIAN')) return { key: 'CHRISTIAN', label: RECEIVER_LABELS.CHRISTIAN };
+    if (normalized.includes('FRAN')) return { key: 'FRAN', label: RECEIVER_LABELS.FRAN };
+    if (!normalized) return { key: 'OTROS', label: 'Otros' };
+    return { key: normalized, label: raw || 'Otros' };
+}
+
+function classifyMetodo(metodo) {
+    const raw = (metodo || '').trim();
+    if (!raw) return { key: 'SIN_METODO', label: 'Sin método' };
+    const label = raw.charAt(0).toUpperCase() + raw.slice(1);
+    return { key: norm(raw) || 'SIN_METODO', label };
+}
+
+const monthFmt = new Intl.DateTimeFormat('es-MX', { month: 'short', year: 'numeric' });
+function monthLabel(ym) {
+    if (!ym) return '';
+    const date = new Date(ym + '-01T00:00:00');
+    if (Number.isNaN(date.getTime())) return ym;
+    return monthFmt.format(date);
 }
 
 // ==== NUEVO: inicio de cobro por alumno (YYYY-MM-01) basado en vigencia_desde de COLEGIATURA ====
@@ -328,6 +358,133 @@ async function h_overview(req, res) {
     }
 }
 
+// ==== /api/finanzas?action=ingresos ====
+async function h_ingresos(req, res) {
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Método no permitido' });
+
+    const cicloStr = String(req.query.ciclo || '').trim();
+    if (!cicloStr) return res.status(400).json({ error: 'Falta ciclo' });
+
+    const sess = getSession(req);
+    const type = (sess?.type || '').toUpperCase();
+    if (type !== 'ADMIN') {
+        return res.status(403).json({ error: 'Solo ADMIN puede consultar ingresos' });
+    }
+
+    try {
+        const { data: cicloRow, error: eC } = await supaAdmin
+            .from('ciclos')
+            .select('id, fecha_inicio')
+            .eq('ciclo', cicloStr)
+            .single();
+        if (eC || !cicloRow) return res.status(400).json({ error: 'Ciclo no válido' });
+        const ciclo_id = cicloRow.id;
+        const fechaInicio = String(cicloRow.fecha_inicio || '').slice(0, 10);
+
+        const { data: pagos, error } = await supaAdmin
+            .from('pagos')
+            .select('fecha_pago, monto_total, tipo_de_pago, metodo_de_pago, recibio')
+            .eq('ciclo_id', ciclo_id)
+            .order('fecha_pago', { ascending: true });
+        if (error) throw error;
+
+        const dayMap = new Map();
+        const recTotals = new Map();
+        const metodoTotals = new Map();
+        const monthTotals = new Map();
+        const recibioLabels = new Map(Object.entries(RECEIVER_LABELS));
+        const metodoLabels = new Map([['SIN_METODO', 'Sin método']]);
+
+        let totalMonto = 0;
+        let totalPagos = 0;
+
+        for (const pago of (pagos || [])) {
+            const tipo = norm(pago.tipo_de_pago || '');
+            if (tipo && tipo !== 'COLEGIATURA') continue;
+
+            const fecha = String(pago.fecha_pago || '').slice(0, 10);
+            if (!fecha) continue;
+            if (fechaInicio && fecha < fechaInicio) continue;
+
+            const monto = Number(pago.monto_total || 0);
+            if (!(monto > 0)) continue;
+
+            totalMonto += monto;
+            totalPagos += 1;
+
+            const rec = classifyRecibio(pago.recibio);
+            const met = classifyMetodo(pago.metodo_de_pago);
+            recibioLabels.set(rec.key, rec.label);
+            metodoLabels.set(met.key, met.label);
+
+            recTotals.set(rec.key, (recTotals.get(rec.key) || 0) + monto);
+            metodoTotals.set(met.key, (metodoTotals.get(met.key) || 0) + monto);
+
+            const monthKey = fecha.slice(0, 7);
+            monthTotals.set(monthKey, (monthTotals.get(monthKey) || 0) + monto);
+
+            const entry = dayMap.get(fecha) || { fecha, total: 0, pagos: 0, recibio: {}, metodos: {} };
+            entry.total += monto;
+            entry.pagos += 1;
+            entry.recibio[rec.key] = (entry.recibio[rec.key] || 0) + monto;
+            entry.metodos[met.key] = (entry.metodos[met.key] || 0) + monto;
+            dayMap.set(fecha, entry);
+        }
+
+        const listFromMap = (m, labels) => Array.from(m.entries())
+            .map(([key, val]) => ({
+                key,
+                label: labels.get(key) || key,
+                monto: +val.toFixed(2)
+            }))
+            .sort((a, b) => b.monto - a.monto);
+
+        const por_dia = Array.from(dayMap.values())
+            .sort((a, b) => b.fecha.localeCompare(a.fecha))
+            .map(d => ({
+                fecha: d.fecha,
+                total: +d.total.toFixed(2),
+                pagos: d.pagos,
+                recibio: Object.entries(d.recibio)
+                    .map(([key, val]) => ({
+                        key,
+                        label: recibioLabels.get(key) || key,
+                        monto: +val.toFixed(2)
+                    }))
+                    .sort((a, b) => b.monto - a.monto),
+                metodos: Object.entries(d.metodos)
+                    .map(([key, val]) => ({
+                        key,
+                        label: metodoLabels.get(key) || key,
+                        monto: +val.toFixed(2)
+                    }))
+                    .sort((a, b) => b.monto - a.monto)
+            }));
+
+        const por_mes = Array.from(monthTotals.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([key, val]) => ({
+                mes: key,
+                label: monthLabel(key),
+                total: +val.toFixed(2)
+            }));
+
+        return res.status(200).json({
+            ciclo: cicloStr,
+            fecha_inicio: fechaInicio,
+            total_general: +totalMonto.toFixed(2),
+            total_pagos,
+            resumen_recibio: listFromMap(recTotals, recibioLabels),
+            resumen_metodo: listFromMap(metodoTotals, metodoLabels),
+            por_dia,
+            por_mes
+        });
+    } catch (e) {
+        console.error('[finanzas/ingresos] Error:', e);
+        return res.status(500).json({ error: 'Error al obtener ingresos' });
+    }
+}
+
 // ==== router ====
 export default async function handler(req, res) {
     try {
@@ -335,6 +492,7 @@ export default async function handler(req, res) {
         switch (action) {
             case 'deudores': return h_deudores(req, res);
             case 'overview': return h_overview(req, res);
+            case 'ingresos': return h_ingresos(req, res);
             default: return res.status(404).json({ error: 'Acción no soportada' });
         }
     } catch (e) {

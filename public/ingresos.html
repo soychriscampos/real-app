@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ingresos</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="/guard.js" defer></script>
+</head>
+
+<body data-page="ingresos">
+    <div data-include="/partials/topbar2.html"></div>
+
+    <div class="container">
+        <div class="card">
+            <div class="row-2" style="align-items:flex-start">
+                <div>
+                    <h2 style="margin-top:0">Ingresos por colegiaturas</h2>
+                    <div class="muted" id="cicloInfo">Cargando ciclo…</div>
+                    <p class="helper" id="periodoInfo" style="margin-top:6px"></p>
+                </div>
+                <div class="kpi-ingresos" role="status">
+                    <div class="muted">Total recibido desde el inicio</div>
+                    <div class="kpi-value" id="totalGeneral">$0.00</div>
+                    <div class="subtle" id="totalPagos">— pagos</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row-2 mt-12">
+            <div class="card">
+                <h3 style="margin:0 0 6px">Por quién recibió</h3>
+                <p class="helper" style="margin-top:0">Comparativa Christian vs Fran (y otros)</p>
+                <div id="resumenRecibio" class="pill-grid"></div>
+            </div>
+            <div class="card">
+                <h3 style="margin:0 0 6px">Por método de pago</h3>
+                <p class="helper" style="margin-top:0">Efectivo, transferencia, etc.</p>
+                <div id="resumenMetodos" class="pill-grid"></div>
+            </div>
+        </div>
+
+        <div class="card mt-12">
+            <div class="row-2" style="align-items:center">
+                <h3 style="margin:0">Ingresos por día</h3>
+                <div class="muted t-right" id="rangoInfo"></div>
+            </div>
+            <div id="diarioList" class="daily-list mt-12"></div>
+        </div>
+
+        <div class="card mt-12">
+            <div class="row-2" style="align-items:center">
+                <div>
+                    <h3 style="margin:0">Ingresos mensuales</h3>
+                    <p class="helper" style="margin-top:4px">Gráfico de barras por total mensual</p>
+                </div>
+                <div class="muted t-right" id="chartNote"></div>
+            </div>
+            <div id="monthlyChart" class="bar-chart mt-12"></div>
+        </div>
+    </div>
+
+    <script src="/include.js" defer></script>
+    <script src="/topbar-init.js" defer></script>
+    <script src="/utils.js" defer></script>
+    <script>
+        const $id = (x) => document.getElementById(x);
+        const fmt = (n) => (window.fmtMXN ? fmtMXN(n) : ('$' + Number(n || 0).toFixed(2)));
+        const dayFmt = new Intl.DateTimeFormat('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
+        const longFmt = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        async function getCicloActual() {
+            const r = await fetch('/api/param?keys=ciclo_actual');
+            const j = await r.json().catch(() => ({}));
+            return j?.ciclo_actual || '';
+        }
+
+        async function fetchJson(url) {
+            const r = await fetch(url, { credentials: 'same-origin' });
+            const txt = await r.text();
+            let json = {};
+            try { json = JSON.parse(txt); } catch { }
+            if (!r.ok) throw new Error(json.error || ('HTTP ' + r.status + ' ' + txt));
+            return json;
+        }
+
+        function formatDay(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr + 'T00:00:00');
+            return Number.isNaN(d.getTime()) ? dateStr : dayFmt.format(d);
+        }
+
+        function formatLong(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr + 'T00:00:00');
+            return Number.isNaN(d.getTime()) ? dateStr : longFmt.format(d);
+        }
+
+        function renderPills(el, rows) {
+            if (!el) return;
+            if (!Array.isArray(rows) || !rows.length) {
+                el.innerHTML = '<div class="helper">Sin datos.</div>';
+                return;
+            }
+            el.innerHTML = rows.map(r => `
+                <div class="pill">
+                    <div>${r.label}</div>
+                    <strong>${fmt(r.monto)}</strong>
+                </div>
+            `).join('');
+        }
+
+        function renderDiario(rows) {
+            const wrap = $id('diarioList');
+            if (!wrap) return;
+            if (!rows.length) {
+                wrap.innerHTML = '<div class="helper">Sin movimientos registrados.</div>';
+                return;
+            }
+            wrap.innerHTML = rows.map(d => {
+                const recList = Array.isArray(d.recibio) ? d.recibio : [];
+                const metList = Array.isArray(d.metodos) ? d.metodos : [];
+                const rec = recList.map(r => `<span class="chip"><span>${r.label}</span><b>${fmt(r.monto)}</b></span>`).join('') || '<span class="helper">—</span>';
+                const met = metList.map(r => `<span class="chip"><span>${r.label}</span><b>${fmt(r.monto)}</b></span>`).join('') || '<span class="helper">—</span>';
+                return `
+                <div class="daily-row">
+                    <div class="daily-head">
+                        <div>
+                            <div class="daily-date">${formatDay(d.fecha)}</div>
+                            <div class="subtle">${d.pagos} pago(s)</div>
+                        </div>
+                        <div class="daily-total">${fmt(d.total)}</div>
+                    </div>
+                    <div class="daily-break">
+                        <div>
+                            <div class="muted">Recibió</div>
+                            <div class="chip-line">${rec}</div>
+                        </div>
+                        <div>
+                            <div class="muted">Método</div>
+                            <div class="chip-line">${met}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderChart(rows) {
+            const wrap = $id('monthlyChart');
+            const note = $id('chartNote');
+            if (!wrap) return;
+            if (!rows.length) {
+                wrap.innerHTML = '<div class="helper">Aún no hay ingresos registrados.</div>';
+                if (note) note.textContent = '';
+                return;
+            }
+            const max = Math.max(...rows.map(r => r.total), 1);
+            if (note) note.textContent = `Mayor ingreso mensual: ${fmt(max)}`;
+            wrap.innerHTML = rows.map(r => {
+                const height = Math.max(4, Math.round((r.total / max) * 180));
+                return `
+                <div class="bar">
+                    <div class="bar-value" style="height:${height}px">
+                        <span>${fmt(r.total)}</span>
+                    </div>
+                    <div class="bar-label">${r.label}</div>
+                </div>`;
+            }).join('');
+        }
+
+        async function ensureAdmin() {
+            const getter = window.getMeCached ? window.getMeCached() : fetchJson('/api/me');
+            const me = await getter;
+            const type = (me?.user?.type || '').toUpperCase();
+            if (type !== 'ADMIN') {
+                alert('Sección disponible solo para ADMIN.');
+                location.href = '/inicio.html';
+                throw new Error('No autorizado');
+            }
+            return me;
+        }
+
+        async function init() {
+            await ensureAdmin();
+            const ciclo = await getCicloActual();
+            if (!ciclo) {
+                $id('cicloInfo').textContent = 'Configura el parámetro ciclo_actual.';
+                return;
+            }
+            $id('cicloInfo').textContent = `Ciclo: ${ciclo}`;
+
+            const data = await fetchJson('/api/finanzas/ingresos?ciclo=' + encodeURIComponent(ciclo));
+            if (data.fecha_inicio) {
+                $id('periodoInfo').textContent = `Desde ${formatLong(data.fecha_inicio)}`;
+            }
+            $id('totalGeneral').textContent = fmt(data.total_general || 0);
+            $id('totalPagos').textContent = `${data.total_pagos || 0} pago(s)`;
+
+            if (Array.isArray(data.por_dia) && data.por_dia.length) {
+                const primero = data.por_dia[data.por_dia.length - 1]?.fecha;
+                const ultimo = data.por_dia[0]?.fecha;
+                const rango = [primero, ultimo].filter(Boolean).map(formatLong);
+                $id('rangoInfo').textContent = rango.length ? rango.join(' → ') : '';
+            } else {
+                $id('rangoInfo').textContent = '';
+            }
+
+            renderPills($id('resumenRecibio'), data.resumen_recibio || []);
+            renderPills($id('resumenMetodos'), data.resumen_metodo || []);
+            renderDiario(data.por_dia || []);
+            renderChart(data.por_mes || []);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            init().catch(err => {
+                console.error('ingresos init error', err);
+                alert('No se pudieron cargar los ingresos.');
+            });
+        });
+    </script>
+</body>
+
+</html>
