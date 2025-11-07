@@ -190,7 +190,7 @@
             }
             $id('cicloInfo').textContent = `Ciclo: ${ciclo}`;
 
-            const data = await fetchJson('/api/finanzas/ingresos?ciclo=' + encodeURIComponent(ciclo));
+            const data = await fetchJson('/api/finanzas?action=ingresos&ciclo=' + encodeURIComponent(ciclo));
             if (data.fecha_inicio) {
                 $id('periodoInfo').textContent = `Desde ${formatLong(data.fecha_inicio)}`;
             }
