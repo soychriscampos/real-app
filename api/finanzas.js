@@ -89,6 +89,18 @@ function inicioCobroAlumno(alumnoId, cicloStart /* 'YYYY-MM-DD' */, byAlumno) {
     return (cand || cicloStart).slice(0, 7) + '-01';
 }
 
+function creditoPrevioAlumno(alumnoId, inicio, pagadoPorPeriodo, calendario) {
+    let total = 0;
+    for (const p of (calendario || [])) {
+        if (tipoDePeriodo(p) !== 'COLEGIATURA') continue;
+        const fv = String(p.fecha_vencimiento || '').slice(0, 10);
+        if (!fv || fv >= inicio) continue;
+        const key = alumnoId + '|' + p.periodo;
+        total += Number(pagadoPorPeriodo.get(key) || 0);
+    }
+    return +total.toFixed(2);
+}
+
 // ==== /api/finanzas?action=deudores ====
 async function h_deudores(req, res) {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Método no permitido' });
@@ -185,6 +197,7 @@ async function h_deudores(req, res) {
 
             let deuda = 0;
             const conceptos = [];
+            let creditoPrevio = creditoPrevioAlumno(a.id, inicio, pagadoCol, cal);
 
             // INS contra pagos
             if (hayINSvencido && ins > 0) {
@@ -197,7 +210,13 @@ async function h_deudores(req, res) {
             for (const p of (vencidosFiltrados || [])) {
                 if (tipoDePeriodo(p) !== 'COLEGIATURA') continue;
                 const esperado = col * Number(p.multiplicador || 1);
-                const abono = Number(pagadoCol.get(a.id + '|' + p.periodo) || 0);
+                let abono = Number(pagadoCol.get(a.id + '|' + p.periodo) || 0);
+                if (abono < esperado && creditoPrevio > 0) {
+                    const faltante = Math.max(0, +(esperado - abono).toFixed(2));
+                    const uso = Math.min(faltante, creditoPrevio);
+                    abono = +(abono + uso).toFixed(2);
+                    creditoPrevio = +(creditoPrevio - uso).toFixed(2);
+                }
                 const saldo = Math.max(0, +(esperado - abono).toFixed(2));
                 if (saldo > 0) { deuda += saldo; conceptos.push(p.periodo); }
             }
@@ -344,13 +363,21 @@ async function h_overview(req, res) {
                 }
             }
 
+            let creditoPrevio = creditoPrevioAlumno(al.id, inicio, pagadoPeriodo, cal);
+
             // b) colegiaturas
             for (const p of (vencidosFiltrados || [])) {
                 if (tipoDePeriodo(p) !== 'COLEGIATURA') continue;
                 const mult = Number(p.multiplicador || 1);
                 const esperado = importeCol * mult; // (Opcional: puedes usar precio por fecha del periodo)
                 const key = al.id + '|' + p.periodo;
-                const pagado = Number(pagadoPeriodo.get(key) || 0);
+                let pagado = Number(pagadoPeriodo.get(key) || 0);
+                if (pagado < esperado && creditoPrevio > 0) {
+                    const faltante = Math.max(0, +(esperado - pagado).toFixed(2));
+                    const uso = Math.min(faltante, creditoPrevio);
+                    pagado = +(pagado + uso).toFixed(2);
+                    creditoPrevio = +(creditoPrevio - uso).toFixed(2);
+                }
                 const saldo = Math.max(0, +(esperado - pagado).toFixed(2));
                 if (saldo > 0) {
                     totalDeuda += saldo;

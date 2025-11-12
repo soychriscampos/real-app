@@ -108,6 +108,7 @@ async function h_registrar(req, res) {
             .from('ciclos').select('id, fecha_inicio, fecha_fin').eq('ciclo', ciclo).single();
         if (eC || !cicloRow) return res.status(400).json({ error: 'Ciclo no válido' });
         const ciclo_id = cicloRow.id;
+        const fecha_inicio_ciclo = cicloRow.fecha_inicio;
 
         // 2) Insert en pagos
         const pagoRow = {
@@ -134,7 +135,7 @@ async function h_registrar(req, res) {
         // 3) Determinar aplicaciones (sólo colegiaturas)
         const { data: cal, error: eCal } = await supaAdmin
             .from('calendario_ciclo')
-            .select('periodo, tipo, multiplicador, orden')
+            .select('periodo, tipo, multiplicador, fecha_vencimiento, orden')
             .eq('ciclo_id', ciclo_id)
             .order('orden', { ascending: true });
         if (eCal) throw eCal;
@@ -204,10 +205,27 @@ async function h_registrar(req, res) {
                     pagado[a.periodo] = (pagado[a.periodo] || 0) + Number(a.monto_aplicado || 0);
                 });
 
-                const pendientes = (cal || []).map(p => {
+                // Determinar inicio real de cobro (YYYY-MM-01)
+                let inicio_cobro = (fecha_inicio_ciclo || today || '').slice(0, 10) || today;
+                inicio_cobro = inicio_cobro.slice(0, 7) + '-01';
+                const vigs = soloCol
+                    .map(r => String(r.vigencia_desde || '').slice(0, 10))
+                    .filter(Boolean)
+                    .sort();
+                const cand = vigs.find(v => v >= (fecha_inicio_ciclo || ''));
+                if (cand) inicio_cobro = cand.slice(0, 7) + '-01';
+
+                const calAplicable = (cal || []).filter(p => {
                     const tipo = (p.tipo || '').toUpperCase();
+                    if (tipo !== 'COLEGIATURA') return false;
+                    const fv = String(p.fecha_vencimiento || '').slice(0, 10);
+                    if (!fv) return true;
+                    return fv >= inicio_cobro;
+                });
+
+                const pendientes = calAplicable.map(p => {
                     const mult = Number(p.multiplicador || 1);
-                    const imp = (tipo === 'COLEGIATURA') ? (colegiatura * mult) : 0;
+                    const imp = colegiatura * mult;
                     const pa = Number(pagado[p.periodo] || 0);
                     const saldo = Math.max(0, +(imp - pa).toFixed(2));
                     return { periodo: p.periodo, saldo, orden: p.orden };
@@ -373,6 +391,44 @@ async function h_summary(req, res) {
             return true; // otros tipos (si los hubiera), déjalos pasar
         });
 
+        const periodosTipo = new Map(
+            (cal || []).map(p => [p.periodo, String(p.tipo || '').toUpperCase()])
+        );
+        const periodosColegValidos = new Set(
+            (calFiltrado || [])
+                .filter(p => String(p.tipo || '').toUpperCase() === 'COLEGIATURA')
+                .map(p => p.periodo)
+        );
+        let creditoExtra = 0;
+        periodosTipo.forEach((tipo, periodo) => {
+            if (tipo !== 'COLEGIATURA') return;
+            if (periodosColegValidos.has(periodo)) return;
+            creditoExtra += Number(pagadoPorPeriodo[periodo] || 0);
+        });
+
+        const ajustarPagosColeg = (lista, creditoInicial) => {
+            const ajustado = new Map();
+            let credito = +Number(creditoInicial || 0).toFixed(2);
+            for (const p of (lista || [])) {
+                const tipoUp = String(p.tipo || '').toUpperCase();
+                const key = p.periodo;
+                let pagado = +Number(pagadoPorPeriodo[key] || 0).toFixed(2);
+                if (tipoUp === 'COLEGIATURA' && credito > 0 && Number(colegiatura) > 0) {
+                    const mult = Number(p.multiplicador || 1);
+                    const importe = Number(colegiatura) * mult;
+                    if (pagado < importe) {
+                        const uso = Math.min(importe - pagado, credito);
+                        pagado = +(pagado + uso).toFixed(2);
+                        credito = +(credito - uso).toFixed(2);
+                    }
+                }
+                ajustado.set(key, pagado);
+            }
+            return { ajustado, creditoRestante: credito };
+        };
+
+        const { ajustado: pagadoAjustado } = ajustarPagosColeg(calFiltrado, creditoExtra);
+
         // Armar detalle por calendario (incluye INS)
         const detalle = (calFiltrado || []).map(p => {
             const periodoUp = (p.periodo || '').toUpperCase();
@@ -387,7 +443,10 @@ async function h_summary(req, res) {
                 pagado = +Number(inscripcion_pagado).toFixed(2);
             } else if (tipoUp === 'COLEGIATURA') {
                 importe = +Number(Number(colegiatura) * mult).toFixed(2);
-                pagado = +Number(pagadoPorPeriodo[p.periodo] || 0).toFixed(2);
+                const pagadoCalc = pagadoAjustado.get(p.periodo);
+                pagado = +Number(
+                    pagadoCalc != null ? pagadoCalc : (pagadoPorPeriodo[p.periodo] || 0)
+                ).toFixed(2);
             } else {
                 importe = 0;
                 pagado = +Number(pagadoPorPeriodo[p.periodo] || 0).toFixed(2);
@@ -435,7 +494,10 @@ async function h_summary(req, res) {
 
             const mult = Number(p.multiplicador || 1);
             const importe = Number(colegiatura) * mult;
-            const aplicado = Number(pagadoPorPeriodo[p.periodo] || 0);
+            const aplicadoBase = pagadoAjustado.has(p.periodo)
+                ? pagadoAjustado.get(p.periodo)
+                : (pagadoPorPeriodo[p.periodo] || 0);
+            const aplicado = Number(aplicadoBase || 0);
             if (aplicado > 0) {
                 if (+aplicado.toFixed(2) >= +importe.toFixed(2)) adelanto_periodos++;
                 adelanto_monto += Math.min(aplicado, importe);
